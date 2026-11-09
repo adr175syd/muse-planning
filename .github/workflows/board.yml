@@ -1,0 +1,39 @@
+# Rebuild the rendered board on every push to main.
+#
+# The board (board/STATUS.md) is a DERIVED artifact: the program renders
+# it from state/*.md + issues.json. No side hand-writes it. This workflow
+# re-renders after any push and commits the result if it changed, so the
+# board on main is always the render of the current state files.
+# Place this file at the repo root: .github/workflows/board.yml
+name: board
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "state/**"
+      - "issues.json"
+      - "program/**"
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Render board
+        run: |
+          cd program
+          python3 -m muse_planning --root .. render --write
+      - name: Commit rendered board if changed
+        run: |
+          git config user.name "muse-planning"
+          git config user.email "muse-planning@local"
+          git add board/STATUS.md
+          git diff --cached --quiet || git commit -m "board: re-render from state files"
+          git push
