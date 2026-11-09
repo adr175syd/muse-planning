@@ -1,12 +1,12 @@
 # CONTROL — Muse Bridge mode switch (Plan System v2, Amendment A4)
 
-mode: PAUSED
-control-seq: 8
-set_by: author
-set_at: 2026-11-09 15:53 ET
-tz_order: "Pause" (TZ, main chat, 2026-11-09 15:52 ET) + "tell everyone to pause we are moving to GitHub" (TZ, side chat, 2026-11-09 15:44 ET)
-keeper: author
-note: PAUSED at seq 8 per TZ order: bridge paused, planning system moving to GitHub; no new work starts; in-flight author 880 (fold of Harbor 492) posted 20:51:23Z; pause packet 881 follows with the GitHub move + the ask for additions/modifications. Idea rotation stays STOPPED. Resume only on TZ word.
+mode: RUN
+control-seq: 9
+set_by: harbor
+set_at: 2026-11-09 17:06 ET
+tz_order: "Resume" (TZ, main chat, 2026-11-09 17:06 ET)
+keeper: harbor
+note: RESUMED at seq 9 on TZ's word ("Resume", main chat 2026-11-09 17:06 ET). The GitHub move landed during the pause: repo adr175syd/muse-planning is live, the planning program is built (author 882), Harbor verified access + tests 40/40 firsthand (Harbor 494). Work resumes under RUN: backtest/sim/measurement only, nothing live or demo; idea rotation stays STOPPED. The repo seed copy of CONTROL syncs to this state (team follow-up).
 
 Per-side machinery state (each side records its own line on seeing a mode change):
 - harbor: at control-seq 2 (RUN, 2026-11-06 21:18 ET) — bridge-watch hook ENABLED and live on RUN (CONTROL gate open; heartbeat ticking every poll), muse-bridge-check cron RE-ENABLED, bridge-pulse.service RUNNING as keeper (A3 + A4.7 v2 keeper build) — packet 180
@@ -20,3 +20,5 @@ Per-side machinery state (each side records its own line on seeing a mode change
 - cc: at control-seq 7 (RUN, 2026-11-08 18:56 ET) — CONTROL flipped by Harbor on TZ's word ("Resume — start the work", main chat 18:56 ET); cc's watcher verified the flip firsthand (CONTROL md5 `dcc480eb…`, RUN seq 7); cc answers Harbor 400 + 401 by packet (475_cc); fold 761 starts (head of cc's fold queue, appends first); the sim build start is Harbor's claim (QUEUE_harbor.md, A8) — cc does not start it; leg-(d) evidence held for the provisional result packet (now 417); the clobber pass runs when sequenced with the folds; idea rotation stays STOPPED; resume only on TZ word.
 - author: at control-seq 7 (RUN, 2026-11-08 18:56 ET) — CONTROL flipped by Harbor on TZ's word ("Resume — start the work", main chat 18:56 ET); 847 posted (answer to 399/473/400/474/401 + 24th-clobber record); 369 fold (848) posts as the author's next packet; sim build is Harbor's claim (no sim-build work on the author's side); bridge-watch hook stays DISABLED (flood risk — seen-sets/watermarks not yet seeded); muse-bridge-check cron live.
 - author: at control-seq 8 (PAUSED, 2026-11-09 15:53 ET) — CONTROL flipped by author on TZ’s word ("Pause", main chat 15:52 ET; GitHub move, side chat 15:44 ET); 880 posted 20:51:23Z (fold of Harbor 492); pause packet 881 follows with the GitHub move + additions/modifications ask; bridge-watch hook gate: PAUSED ends silent; muse-bridge-check cron gate: PAUSED ends silent; no new work starts; resume only on TZ word.
+- harbor: at control-seq 9 (RUN, 2026-11-09 17:06 ET) — CONTROL flipped by Harbor on TZ's word ("Resume", main chat 17:06 ET); Harbor 495 announces the resume; Harbor's lane restarts with the fold of author 880 (queued head), then the fold queue drains in order; the planning-system GitHub program stands built + Harbor-verified (494); idea rotation stays STOPPED.
+- cc: at control-seq 9 (RUN, 2026-11-09 17:06 ET) — CONTROL flipped to RUN seq 9 on TZ's word ("Resume", main chat 17:06 ET); cc verified the flip firsthand (CONTROL md5 6e4691e1…, RUN seq 9, set_by harbor, keeper harbor — Harbor re-flipped after the author's flip, same mode and seq); fold queue unfreezes head-first, fold 845 starts; GitHub move complete (repo adr175syd/muse-planning, program 40/40 tests pass on all three machines, board workflow rendering, all three sides confirmed access); resume only on TZ word.
