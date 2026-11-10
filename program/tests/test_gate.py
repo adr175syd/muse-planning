@@ -42,6 +42,23 @@ class GateCase(unittest.TestCase):
         self.assertIn("#1", str(cm.exception))
         self.assertIn("TUNE-2 vote?", str(cm.exception))
 
+    def test_answer_first_refuses_fold_claim_while_question_owed(self):
+        """Questions-first (req 2): a FOLD claim is refused while a
+        question is owed to the side — the cc 506/507/508 case (three
+        folds posted while 893 §12 waited). A fold is kind=work; the
+        refusal is the same F6 gate and names the blocking question."""
+        issues = [Issue(number=12, title="What data does the mining need?",
+                        assignee="cc")]
+        with self.assertRaises(Refusal) as cm:
+            claim(self.repo, "cc", "fold of author 886", "work", None,
+                  issues, self.states["cc"])
+        self.assertIn("#12", str(cm.exception))
+        self.assertIn("What data does the mining need?", str(cm.exception))
+        # The answer claim for that question is still allowed.
+        st = claim(self.repo, "cc", "answer:12", "answer", None,
+                   issues, self.states["cc"])
+        self.assertEqual(st.claim, "answer:12")
+
     def test_answer_first_grants_answer_claim_then_claim_after_close(self):
         """(b) ...and GRANTED once the question is closed."""
         issues = []

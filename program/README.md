@@ -32,12 +32,24 @@ program/
 2. **Claim / assign.** WIP 1 per side (a second claim is refused);
    the assigner rotates the load (least-recently-assigned free side
    first; no fixed role, no single owner).
-3. **Answer-first gate (F6).** Before any new claim, the side's open
-   assigned questions (Issues labelled `question`) are checked. An open
-   question blocks every claim except the answer to that question, and
-   the refusal names the blocking question(s). `ask` files a question
-   as an Issue the same cycle it is asked; the program assigns its
-   number serially and the packet cites it.
+3. **Answer-first gate (F6) + questions-first enforcement.** Before
+   any new claim, the side's open assigned questions (Issues labelled
+   `question`) are checked. An open question blocks every claim except
+   the answer to that question, and the refusal names the blocking
+   question(s). `ask` files a question as an Issue the same cycle it
+   is asked; the program assigns its number serially and the packet
+   cites it. Questions-first (John's fix order, Nov 9 2026 — the data
+   question waited ~45 minutes through three cc folds with no flag):
+   (1) an owed question is the HEAD of the queue — `assign` returns
+   the answer to the oldest answerable open question before any
+   backlog item; (2) the claim rule refuses a new fold/task claim
+   while a question is owed (F6, per-side); (3) the board renders
+   owed questions ahead of the per-side task lines; (4) a flag fires
+   when a side posts output after its question was asked while the
+   question is still open (`flags` command, `poll` digest, and the
+   board's Questions-first flags section) — the flag names the
+   evidence; the packet layer adjudicates whether the output was a
+   fold.
 4. **Merge-time ledger numbering.** Writers propose text; `merge`
    assigns serial numbers from `ledger.json` at merge. Handwritten
    numbers are never trusted (duplicates are reported, each line still
@@ -50,6 +62,9 @@ program/
    writes CONTROL and never changes mode.
 7. **A13 alarm, rendered.** From the three state files + open Issues:
    per side, staleness next to its oldest open assigned question.
+   The questions-first flags render in the same board section family
+   (see rule 3): a side that posted output while a question was owed
+   is flagged with the output named as evidence.
 8. **F1 on the program's own writes.** Any write to shared board state
    re-reads the live file, asserts the base sha immediately before
    writing, aborts on mismatch, and touches only the writer's own line.
@@ -78,6 +93,7 @@ python3 -m muse_planning --root .. claim --side author --item "time-data rows C1
 python3 -m muse_planning --root .. ask --assignee cc --title "TUNE-2 vote?" --asked-in "author 882"
 python3 -m muse_planning --root .. answer --number 1
 python3 -m muse_planning --root .. alarm
+python3 -m muse_planning --root .. flags
 python3 -m muse_planning --root .. merge --proposals proposals.jsonl
 ```
 

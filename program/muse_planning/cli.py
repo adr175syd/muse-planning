@@ -24,9 +24,13 @@ Usage (repo root = the checkout of adr175syd/muse-planning, default `.`):
       {"proposed": <n|null>, "text": "..."}). Prints numbered lines.
   python3 -m muse_planning alarm
       A13 alarm rows (commit-time liveness + oldest open question).
+  python3 -m muse_planning flags
+      Questions-first flags: sides that posted output while a question
+      was owed to them (fold-while-owed detector). Prints JSON rows.
   python3 -m muse_planning poll --side author
       Watcher contract: one digest line (JSON). CONTROL PAUSED/WIND-DOWN
-      prints {"mode": ..., "wake": false} and exits 0 — silent.
+      prints {"mode": ..., "wake": false} and exits 0 — silent. A
+      questions-first flag wakes the watcher, like a stale side.
 
 All commands are offline: they read the repo checkout only. No GitHub
 API calls, no network. The watcher syncs issues.json from GitHub
@@ -47,6 +51,7 @@ from .gate import (answer_question, ask_question, claim as do_claim,
                    load_control, record_progress, release as do_release)
 from .ledger import merge_file
 from .liveness import alarm as do_alarm
+from .liveness import questions_first_flags as do_flags
 from .model import (SIDES, SideState, dump_issues, load_issues,
                     parse_backlog)
 from .store import Repo, Refusal, atomic_write, f1_write, sha256_hex
@@ -189,6 +194,15 @@ def cmd_alarm(args) -> int:
     return 0
 
 
+def cmd_flags(args) -> int:
+    repo = _repo(args)
+    states = _load_states(repo)
+    issues = _load_issues(repo)
+    rows = do_flags(states, issues)
+    print(json.dumps(rows, indent=2))
+    return 0
+
+
 def cmd_poll(args) -> int:
     """Watcher contract. One JSON digest line. The existing watcher calls
     this every 20-60s; it does NOT create a second watcher. CONTROL
@@ -213,13 +227,15 @@ def cmd_poll(args) -> int:
     new_q = [i.number for i in mine if i.number not in seen]
     rows = do_alarm(str(repo.root), states, issues)
     stale = [r["side"] for r in rows if r["stale"]]
-    wake = bool(new_q) or bool(stale)
+    flags = do_flags(states, issues)
+    wake = bool(new_q) or bool(stale) or bool(flags)
     seen |= {i.number for i in mine}
     atomic_write(seen_path, json.dumps(sorted(seen)).encode("utf-8"))
     print(json.dumps({
         "mode": mode, "seq": control.get("control-seq"), "wake": wake,
         "new_questions": new_q,
         "stale_sides": stale,
+        "questions_first_flags": flags,
         "open_questions": {s: len([i for i in issues if i.assignee == s and i.state == "open"]) for s in SIDES},
     }))
     return 0
@@ -264,6 +280,8 @@ def build_parser() -> argparse.ArgumentParser:
     mg.set_defaults(fn=cmd_merge)
     al = sub.add_parser("alarm", help="A13 alarm rows")
     al.set_defaults(fn=cmd_alarm)
+    fl = sub.add_parser("flags", help="questions-first flags (fold while a question is owed)")
+    fl.set_defaults(fn=cmd_flags)
     po = sub.add_parser("poll", help="watcher digest (one JSON line)")
     po.add_argument("--side", required=True, choices=list(SIDES))
     po.set_defaults(fn=cmd_poll)

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from .liveness import alarm
+from .liveness import alarm, questions_first_flags
 from .model import SIDES, SideState, parse_status_line, parse_time
 from .store import Repo, atomic_write
 
@@ -22,7 +22,12 @@ def render_board(states: dict[str, SideState], issues, now: datetime | None = No
     """Render the STATUS view. Same one-line-per-side shape as the seeded
     STATUS.md, so the output is a drop-in replacement for the Drive board
     — plus an A13 alarm section computed from commit-time liveness (the
-    caller passes alarm rows; render_board does not call git itself)."""
+    caller passes alarm rows; render_board does not call git itself).
+
+    Questions-first (John's fix order, Nov 9 2026): owed questions are
+    the HEAD of the queue, so the open-questions section renders ABOVE
+    the per-side task lines — the board shows what is owed before what
+    is being worked on."""
     now = now or datetime.now(timezone.utc)
     lines = [
         "# STATUS — Muse Bridge (rendered by muse-planning from state/*.md + issues.json)",
@@ -30,15 +35,17 @@ def render_board(states: dict[str, SideState], issues, now: datetime | None = No
         f"# Rendered: {now.strftime('%Y-%m-%dT%H:%M:%SZ')}",
         "",
     ]
+    open_q = [i for i in issues if i.state == "open"]
+    open_q.sort(key=lambda x: (x.created_at or datetime.min.replace(tzinfo=timezone.utc), x.number))
+    lines.append(f"## Owed questions (head of queue — answer first): {len(open_q)}")
+    for i in open_q:
+        asked = f" (asked {i.created_at.strftime('%Y-%m-%dT%H:%M:%SZ')})" if i.created_at else ""
+        lines.append(
+            f"- #{i.number} [{i.assignee}] {i.title} (asked in {i.asked_in}){asked}"
+        )
+    lines.append("")
     for side in SIDES:
         lines.append(states[side].board_line())
-    open_q = [i for i in issues if i.state == "open"]
-    lines.append("")
-    lines.append(f"## Open questions: {len(open_q)}")
-    for i in sorted(open_q, key=lambda x: x.number):
-        lines.append(
-            f"- #{i.number} [{i.assignee}] {i.title} (asked in {i.asked_in})"
-        )
     return "\n".join(lines) + "\n"
 
 
@@ -55,6 +62,17 @@ def render_board_with_alarm(repo: Repo, states, issues, now=None) -> str:
         lines.append(
             f"- {r['side']}: {stale} (last state commit {mins} ago) — {q}"
             + (f" — claim {r['claim']}" if r["claim"] else "")
+        )
+    flags = questions_first_flags(states, issues)
+    lines.append("")
+    lines.append("## Questions-first flags (output posted while a question was owed)")
+    if not flags:
+        lines.append("- none")
+    for f in flags:
+        lines.append(
+            f"- FLAG {f['side']}: posted {f['last_output']!r} "
+            f"({f['last_output_time']}) while question #{f['question']} "
+            f"{f['question_title']!r} was owed (asked {f['question_created_at']})"
         )
     return "\n".join(lines) + "\n"
 

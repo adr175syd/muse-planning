@@ -55,12 +55,49 @@ class AssignCase(unittest.TestCase):
         side, _ = assign(self.states, self.items, [])
         self.assertEqual(side, "cc")
 
-    def test_side_with_open_question_is_skipped(self):
+    def test_owed_question_is_head_of_queue(self):
+        """Questions-first (req 1): a side with an open question is
+        assigned the ANSWER to it, ahead of any backlog item. This
+        supersedes the old behavior (skip the blocked side and assign
+        backlog work to someone else) — the owed question is the head
+        of the queue, not something to route around."""
+        issues = [Issue(number=1, title="TUNE-2 vote?", assignee="author")]
+        side, item = assign(self.states, self.items, issues)
+        self.assertEqual(side, "author")
+        self.assertEqual(item.title, "answer:1")
+        self.assertEqual(item.kind, "answer")
+
+    def test_side_with_open_question_not_in_free_sides(self):
+        """free_sides still excludes a side with an open question (it
+        takes no backlog work); the assigner gives it the answer
+        instead (see test_owed_question_is_head_of_queue)."""
         issues = [Issue(number=1, title="TUNE-2 vote?", assignee="author")]
         free = free_sides(self.states, issues)
         self.assertNotIn("author", free)
-        side, _ = assign(self.states, self.items, issues)
+
+    def test_oldest_owed_question_first(self):
+        """When two sides owe answers, the question that waited longest
+        is assigned first."""
+        t_old = datetime(2026, 11, 9, 9, 0, tzinfo=timezone.utc)
+        t_new = datetime(2026, 11, 9, 11, 0, tzinfo=timezone.utc)
+        issues = [
+            Issue(number=2, title="newer Q", assignee="cc", created_at=t_new),
+            Issue(number=1, title="older Q", assignee="harbor", created_at=t_old),
+        ]
+        side, item = assign(self.states, self.items, issues)
+        self.assertEqual(side, "harbor")
+        self.assertEqual(item.title, "answer:1")
+
+    def test_busy_assignee_answer_waits_other_sides_still_work(self):
+        """A question whose assignee holds a claim (WIP 1) waits for that
+        side to free up; other free sides still get backlog work — the
+        refusal is per-side, and the whole team is not blocked on one
+        busy side."""
+        issues = [Issue(number=1, title="TUNE-2 vote?", assignee="author")]
+        self.states["author"].claim = "busy fold"
+        side, item = assign(self.states, self.items, issues)
         self.assertIn(side, ("harbor", "cc"))
+        self.assertEqual(item.title, "time-data rows C1/C2/retry")
 
     def test_no_free_side_refuses(self):
         for s in self.states.values():

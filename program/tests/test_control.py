@@ -32,12 +32,18 @@ class ControlCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_control("control-seq: 9\n")
 
-    def test_real_seeded_control_is_paused_seq_8(self):
+    def test_real_control_file_parses_and_gates_consistently(self):
+        # The repo-root CONTROL.md is a living file: it flips RUN/PAUSED by
+        # packet (RUN seq 9 since the Nov 9 resume), so no test may pin a
+        # moment-in-time mode. Pin its structure and the gate decision
+        # instead; the fixed modes are covered by test_parse_* above.
         seed = Path(__file__).resolve().parent.parent.parent
         c = parse_control((seed / "CONTROL.md").read_text(encoding="utf-8"))
-        self.assertEqual(c["mode"], "PAUSED")
-        self.assertEqual(c["control-seq"], "8")
-        self.assertEqual(c["set_by"], "author")
+        self.assertIn(c["mode"], ("RUN", "PAUSED", "WIND-DOWN"))
+        self.assertTrue(c["control-seq"].isdigit())
+        self.assertTrue(c["set_by"])
+        ok, _ = control_allows_claim(c)
+        self.assertEqual(ok, c["mode"] == "RUN")
 
 
 if __name__ == "__main__":
