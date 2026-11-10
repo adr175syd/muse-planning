@@ -23,6 +23,8 @@ Rules (447 §1 as adopted):
   Design work only; NO build until John decides (362/830). (1) entry-filter design is the frozen spec; Harbor's provisional entry-filter run (DONE provisional, corrections owed) is not this item. Seed: 820 §1(c).
 - time-data framework build | owner: author | working: author | spec: 786 §1 + 334 amendments + 798 adoption + 443 §1 (3-0) | kill: 334 §1(2)/(3) as amended | est: — | status: done
   Framework proven end-to-end on H-E4. Remaining table rows are the C1/C2/retry item above; Gotobi rows are a future item (Gotobi last per 367 §3 / 368 §1(f)). Seed: 820 §1(d).
+- engine build — bar-walk with mining fields (MAE, time-to-first-+1R, intra-trade path, zone age in bars, touch history, penetration-so-far) | priority: P1 | owner: team | working: author | spec: JJ's order 926 NEW (5) (side chat ~09:24 ET Nov 10): figure out adds/changes, build, then resume the queue; field gaps per cc 511 §4 + Harbor 521 §13 | kill: prototype gate 0 diffs vs current books + all six fields present in every trade book | est: — | status: ready
+  JJ's #1 order; P1 pinned by JJ's order ~12:25 ET Nov 10 (carried to Harbor + cc by packet in author 937). Harbor's bar-walk prototype (574) is STATUS-line-only until the 996 fold reads it firsthand; team pins owner/working + final levels by packet.
 
 ## Excluded — NOT pool-eligible (recorded, not movable)
 
