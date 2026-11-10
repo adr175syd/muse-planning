@@ -32,12 +32,15 @@ class ControlCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_control("control-seq: 9\n")
 
-    def test_real_seeded_control_is_paused_seq_8(self):
+    def test_real_seeded_control_is_run_seq_9(self):
+        # Live CONTROL moved on John's resume word ("Resume", main chat
+        # 2026-11-09 17:06 ET): RUN seq 9, keeper harbor. This test pins
+        # the live file, not the pause it superseded (PAUSED seq 8).
         seed = Path(__file__).resolve().parent.parent.parent
         c = parse_control((seed / "CONTROL.md").read_text(encoding="utf-8"))
-        self.assertEqual(c["mode"], "PAUSED")
-        self.assertEqual(c["control-seq"], "8")
-        self.assertEqual(c["set_by"], "author")
+        self.assertEqual(c["mode"], "RUN")
+        self.assertEqual(c["control-seq"], "9")
+        self.assertEqual(c["set_by"], "harbor")
 
 
 if __name__ == "__main__":

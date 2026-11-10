@@ -64,7 +64,7 @@ class SideState:
     last_output: str = ""
     # claim: "" (none) or "<item-id>" while WIP 1 is held.
     claim: str = ""
-    claim_kind: str = ""  # "answer" | "work" | "research"
+    claim_kind: str = ""  # "answer" | "fold" | "work" | "research"
     claim_started: datetime | None = None
     # last assignment time, for rotation (least-recently-assigned first).
     last_assigned: datetime | None = None
@@ -109,13 +109,22 @@ class SideState:
             last_assigned=parse_time(fields["last-assigned"]) if fields.get("last-assigned") else None,
         )
 
-    def board_line(self) -> str:
+    def board_line(self, owed: list[Issue] | None = None) -> str:
         """The side's one line on the rendered board (same shape as the
-        seeded STATUS.md lines: `- <side> | q: ... | current: ...`)."""
+        seeded STATUS.md lines: `- <side> | q: ... | current: ...`).
+        Owed questions render AHEAD of the current task (`owed:` before
+        `current:`), so the state is visible: questions first, tasks
+        wait. `owed` is the side's open assigned questions, oldest
+        first; pass None (or []) for none owed."""
         q = "folds 0 / answers 0 / builds 0"
+        if owed:
+            owed_s = "; ".join(f"#{i.number} {i.title}" for i in owed)
+        else:
+            owed_s = "none"
         started = fmt_time(self.started) if self.started else ""
         return (
-            f"- {self.side} | q: {q} | current: {self.current}"
+            f"- {self.side} | q: {q} | owed: {owed_s}"
+            f" | current: {self.current}"
             f" | started: {started} | est: {self.est}"
             f" | blocked-on: {self.blocked_on or 'nothing'}"
             f" | progress: {self.progress}"

@@ -5,9 +5,12 @@ refusal names its reason):
   1. CONTROL: mode PAUSED (or WIND-DOWN for non-redesign work) refuses
      every claim — no new work starts; resume only on John's word (A4).
      The program never changes mode itself.
-  2. Answer-first (F6): a side with an open assigned question may claim
-     ONLY the answer item for that question. Any other claim is refused
-     and names the blocking question(s).
+  2. Answer-first (F6, packet 870 §12, cc 487): a side with an open
+     assigned question may claim ONLY the answer item for that question.
+     Any other claim — fold, task, or research — is refused and names
+     the blocking question(s). This is the enforcement of "questions
+     first, tasks wait": the refusal is the gate, and flags.find_violations
+     is the catch for a side that goes around it.
   3. WIP 1: a side holding a claim may not take a second one.
   4. A7 in the assigner: a watch/read-only item is never a side's sole
      item — it is refused as a claim unless the side already holds an
@@ -75,7 +78,8 @@ def check_answer_first(issues: list[Issue], side: str, item_kind: str, item_id: 
     names = ", ".join(f"#{i.number} {i.title!r}" for i in open_q)
     raise Refusal(
         f"answer-first: side {side} has open question(s) {names}; "
-        f"answer the question(s) before any new claim (F6)"
+        f"answer the question(s) before any new claim — fold/task claims "
+        f"are refused while a question is owed (F6, packet 870 §12)"
     )
 
 
@@ -118,9 +122,20 @@ def claim(repo: Repo, side: str, item_id: str, item_kind: str,
           item: BacklogItem | None, issues: list[Issue],
           state: SideState, at: datetime | None = None) -> SideState:
     """Grant a claim, returning the updated state (the caller writes it).
-    Raises Refusal with the reason on any failed gate."""
+    Raises Refusal with the reason on any failed gate. Kinds: "answer"
+    (the answer to an open question), "fold" (a fold, through the
+    queue), "work" (any other task), "research" (a backlog pull). A fold
+    claim is refused by answer-first like any other non-answer claim
+    while a question is owed; folds never auto-pull (A18) and are never
+    watch-only claims (A7 does not apply — a fold is unconditional work,
+    not a watch)."""
     if side not in SIDES:
         raise Refusal(f"unknown side {side!r} (want one of {SIDES})")
+    if item_kind not in ("answer", "fold", "work", "research"):
+        raise Refusal(
+            f"unknown claim kind {item_kind!r} "
+            f"(want one of answer | fold | work | research)"
+        )
     at = at or now_utc()
     control = load_control(repo)
     ok, why = control_allows_claim(control)

@@ -59,11 +59,15 @@ cc's three additions (cc 490 §2):
 
 ## The program (`program/`)
 
-Not yet built. It will: claim/assign work (WIP 1, rotate the load),
-enforce answer-first (refuse a new claim while an assigned question is
-open), render the board from per-side state files, assign ledger numbers
-at merge, and check liveness from git commit times. GitHub Actions rebuild
-the board on push; each side's watcher polls GitHub every 20–60s.
+Built (author 882, Harbor verified access + tests firsthand in Harbor
+494). It claims/assigns work (WIP 1, rotate the load), enforces
+answer-first four ways — owed questions head the queue, a fold/task claim
+is refused while a question is owed, the board renders owed questions
+ahead of tasks, and a fold started while a question was owed is flagged
+(see `program/README.md`, "Questions-first enforcement") — renders the
+board from per-side state files, assigns ledger numbers at merge, and
+checks liveness from git commit times. GitHub Actions rebuild the board
+on push; each side's watcher polls GitHub every 20–60s.
 
 ## Access
 

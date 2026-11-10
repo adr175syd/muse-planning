@@ -7,8 +7,15 @@ Usage (repo root = the checkout of adr175syd/muse-planning, default `.`):
       (use --write to also write board/STATUS.md via F1).
   python3 -m muse_planning migrate [--root DIR]
       One-time: parse the seeded STATUS.md into state/<side>.md.
-  python3 -m muse_planning claim --side author --item <id> --kind <answer|work|research>
+  python3 -m muse_planning claim --side author --item <id> --kind <answer|fold|work|research>
       Claim one item (answer-first, WIP 1, A7, A18, CONTROL gates apply).
+      A fold claim is refused while an assigned question is owed (F6).
+  python3 -m muse_planning queue --side cc
+      The side's work queue, questions first: owed answers at the head,
+      then its current claim, then the movable backlog pool.
+  python3 -m muse_planning flags
+      Questions-first flags: sides that started a fold/task while a
+      question was owed. Exits 2 when any flag stands, 0 when none.
   python3 -m muse_planning release --side author
   python3 -m muse_planning progress --side author --note "..."
   python3 -m muse_planning ask --assignee cc --title "..." --asked-in "author 882"
@@ -43,12 +50,14 @@ from pathlib import Path
 from . import __version__
 from .assign import assign as do_assign
 from .board import migrate_status_to_state, render_board_with_alarm, write_state
+from .flags import find_violations, format_flag
 from .gate import (answer_question, ask_question, claim as do_claim,
                    load_control, record_progress, release as do_release)
 from .ledger import merge_file
 from .liveness import alarm as do_alarm
 from .model import (SIDES, SideState, dump_issues, load_issues,
                     parse_backlog)
+from .queue import ordered_queue
 from .store import Repo, Refusal, atomic_write, f1_write, sha256_hex
 
 
@@ -116,6 +125,43 @@ def cmd_claim(args) -> int:
     write_state(repo, state)
     print(f"CLAIMED {args.side} <- {args.item} ({args.kind})")
     return 0
+
+
+def cmd_queue(args) -> int:
+    """A side's work queue, questions first (queue.py). The head is the
+    next thing the side works: its oldest owed question, else its current
+    claim, else the head movable backlog item."""
+    repo = _repo(args)
+    states = _load_states(repo)
+    issues = _load_issues(repo)
+    items = parse_backlog(repo.backlog_path().read_text(encoding="utf-8"))
+    queue = ordered_queue(args.side, issues, states[args.side], items)
+    if not queue:
+        print(f"QUEUE {args.side}: empty")
+        return 0
+    print(f"QUEUE {args.side} (head first — owed questions ahead of folds/tasks):")
+    for n, entry in enumerate(queue, 1):
+        mark = " <- HEAD" if n == 1 else ""  # head_of_queue is queue[0]
+        print(f"  {n}. [{entry.kind}] {entry.ref} — {entry.title}"
+              + (f" ({entry.detail})" if entry.detail else "") + mark)
+    return 0
+
+
+def cmd_flags(args) -> int:
+    """Questions-first flags (flags.py). A side that started a fold/task
+    while a question was owed is flagged by name. Exits 2 while any flag
+    stands — the same way a refused claim exits 2 — so a watcher or CI
+    step can fail on it."""
+    repo = _repo(args)
+    states = _load_states(repo)
+    issues = _load_issues(repo)
+    violations = find_violations(states, issues)
+    if not violations:
+        print("No questions-first flags.")
+        return 0
+    for v in violations:
+        print(format_flag(v))
+    return 2
 
 
 def cmd_release(args) -> int:
@@ -192,7 +238,8 @@ def cmd_alarm(args) -> int:
 def cmd_poll(args) -> int:
     """Watcher contract. One JSON digest line. The existing watcher calls
     this every 20-60s; it does NOT create a second watcher. CONTROL
-    PAUSED/WIND-DOWN -> {"wake": false} (silent, exit 0)."""
+    PAUSED/WIND-DOWN -> {"wake": false} (silent, exit 0). A questions-first
+    flag naming this side wakes it, like a new question or a stale side."""
     repo = _repo(args)
     control = load_control(repo)
     mode = control.get("mode", "")
@@ -213,13 +260,16 @@ def cmd_poll(args) -> int:
     new_q = [i.number for i in mine if i.number not in seen]
     rows = do_alarm(str(repo.root), states, issues)
     stale = [r["side"] for r in rows if r["stale"]]
-    wake = bool(new_q) or bool(stale)
+    own_flags = [v for v in find_violations(states, issues)
+                 if v["side"] == args.side]
+    wake = bool(new_q) or bool(stale) or bool(own_flags)
     seen |= {i.number for i in mine}
     atomic_write(seen_path, json.dumps(sorted(seen)).encode("utf-8"))
     print(json.dumps({
         "mode": mode, "seq": control.get("control-seq"), "wake": wake,
         "new_questions": new_q,
         "stale_sides": stale,
+        "questions_first_flags": own_flags,
         "open_questions": {s: len([i for i in issues if i.assignee == s and i.state == "open"]) for s in SIDES},
     }))
     return 0
@@ -239,8 +289,13 @@ def build_parser() -> argparse.ArgumentParser:
     c = sub.add_parser("claim", help="claim one item (gates apply)")
     c.add_argument("--side", required=True, choices=list(SIDES))
     c.add_argument("--item", required=True)
-    c.add_argument("--kind", required=True, choices=["answer", "work", "research"])
+    c.add_argument("--kind", required=True, choices=["answer", "fold", "work", "research"])
     c.set_defaults(fn=cmd_claim)
+    q = sub.add_parser("queue", help="a side's work queue, questions first")
+    q.add_argument("--side", required=True, choices=list(SIDES))
+    q.set_defaults(fn=cmd_queue)
+    fl = sub.add_parser("flags", help="questions-first flags (exit 2 if any stand)")
+    fl.set_defaults(fn=cmd_flags)
     r2 = sub.add_parser("release", help="release a held claim")
     r2.add_argument("--side", required=True, choices=list(SIDES))
     r2.set_defaults(fn=cmd_release)

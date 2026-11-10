@@ -15,6 +15,7 @@ from __future__ import annotations
 import subprocess
 from datetime import datetime, timezone
 
+from .flags import find_violations, format_flag
 from .model import STALE_MINUTES, Issue, SideState, parse_time
 
 GIT_TIMEOUT_S = 10
@@ -67,8 +68,12 @@ def oldest_open_question(issues: list[Issue], side: str) -> Issue | None:
 def alarm(repo_root: str, states: dict[str, SideState],
           issues: list[Issue], now: datetime | None = None) -> list[dict]:
     """A13 alarm rows, one per side: staleness (minutes since last
-    state-file commit) next to the oldest open assigned question."""
+    state-file commit) next to the oldest open assigned question. Each
+    row also carries `questions_first_flag`: the F6 flag text when the
+    side started a fold/task while a question was owed (flags.py), else
+    None — the flag is caught here the way a stale claim is."""
     now = now or datetime.now(timezone.utc)
+    flags = {v["side"]: format_flag(v) for v in find_violations(states, issues)}
     rows = []
     for side in ("author", "harbor", "cc"):
         rel = f"state/{side}.md"
@@ -84,5 +89,6 @@ def alarm(repo_root: str, states: dict[str, SideState],
             "oldest_open_question": q.number if q else None,
             "oldest_open_question_title": q.title if q else "",
             "claim": states[side].claim,
+            "questions_first_flag": flags.get(side),
         })
     return rows

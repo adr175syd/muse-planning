@@ -8,6 +8,11 @@ Runs fully offline in a temp dir (a copy of the seeded repo root):
   (d) the assigner rotates across sides and never double-assigns (WIP 1)
   (e) ledger numbers are assigned serially at merge with no duplicates
   (f) liveness reads commit times
+  (g) questions-first enforcement (F6, packet 870 §12): the mining-data
+      question incident replay — a fold claim is refused while the
+      question is owed, the question heads the queue, and a fold
+      started while it was owed is flagged even when it went around
+      the claim gate
 
 Usage: python3 demo.py
 """
@@ -24,8 +29,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from muse_planning.assign import assign  # noqa: E402
 from muse_planning.board import (migrate_status_to_state,  # noqa: E402
                                  render_board_with_alarm, write_state)
+from muse_planning.flags import find_violations, format_flag  # noqa: E402
 from muse_planning.gate import (answer_question, ask_question,  # noqa: E402
                                 claim, release)
+from muse_planning.queue import head_of_queue, ordered_queue  # noqa: E402
 from muse_planning.ledger import merge_file  # noqa: E402
 from muse_planning.liveness import alarm  # noqa: E402
 from muse_planning.model import SideState, parse_backlog  # noqa: E402
@@ -143,8 +150,61 @@ def main():
               f"stale_minutes={row['stale_minutes']} "
               f"oldest_open_question={row['oldest_open_question']}")
 
+    # (g) Questions-first enforcement (incident replay).
+    demo_questions_first(repo, states, items)
+
     print(f"\nDemo complete. Temp repo kept at {root} for inspection.")
     return 0
+
+
+def demo_questions_first(repo, states, items):
+    """(g) Questions-first enforcement — the mining-data incident replay.
+
+    The question (author 893 §12) went out 21:37 ET Nov 9 (02:37Z Nov
+    10); cc posted folds 506-508 over the next ~45 minutes with no
+    answer and no flag fired. Here: the fold claim is refused, the
+    question heads the queue, and a fold started while it was owed is
+    flagged even though it went around the claim gate."""
+    section("(g) Questions-first enforcement (F6) — mining-data incident replay")
+    q_at = datetime(2026, 11, 10, 2, 37, tzinfo=timezone.utc)
+    fold_at = datetime(2026, 11, 10, 3, 0, tzinfo=timezone.utc)
+    issues = []
+    q = ask_question(issues, "mining-data question", "", "cc", "author 893", at=q_at)
+    print(f"asked question #{q.number} -> cc at {q_at.isoformat()} "
+          f"(author 893 §12, 21:37 ET Nov 9)")
+    head = head_of_queue("cc", issues, states["cc"], items)
+    print(f"queue head for cc: [{head.kind}] {head.ref} — {head.title!r} "
+          f"(question heads the queue, ahead of folds/tasks)")
+    try:
+        claim(repo, "cc", "fold 506", "fold", None, issues, states["cc"], at=fold_at)
+        print("ERROR: fold claim was granted while the question was owed")
+    except Refusal as e:
+        print(f"REFUSED (expected): {e}")
+    # The bypass: a fold claim started after the question, posted
+    # without going through the claim gate (the actual incident shape).
+    states["cc"].claim = "fold 506"
+    states["cc"].claim_kind = "fold"
+    states["cc"].claim_started = fold_at
+    states["cc"].current = "fold 506"
+    states["cc"].started = fold_at
+    states["cc"].updated = fold_at
+    for v in find_violations(states, issues):
+        print(f"FLAGGED (expected): {format_flag(v)}")
+    board = render_board_with_alarm(repo, states, issues)
+    print("board carries the flag:")
+    for ln in board.splitlines():
+        if "FLAG questions-first" in ln or ln.startswith("## Questions-first"):
+            print(f"  {ln}")
+    # Answer the question: the flag clears and the fold claim is granted.
+    answer_question(issues, q.number)
+    print(f"answered question #{q.number}")
+    print(f"flags now: {find_violations(states, issues)}")
+    states["cc"].claim = ""
+    states["cc"].claim_kind = ""
+    states["cc"].claim_started = None
+    states["cc"].current = ""
+    st = claim(repo, "cc", "fold 506", "fold", None, issues, states["cc"], at=fold_at)
+    print(f"GRANTED (expected): cc claimed {st.claim!r} once the question closed")
 
 
 if __name__ == "__main__":

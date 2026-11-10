@@ -13,8 +13,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from .flags import find_violations, format_flag
 from .liveness import alarm
 from .model import SIDES, SideState, parse_status_line, parse_time
+from .queue import open_questions_for
 from .store import Repo, atomic_write
 
 
@@ -22,7 +24,14 @@ def render_board(states: dict[str, SideState], issues, now: datetime | None = No
     """Render the STATUS view. Same one-line-per-side shape as the seeded
     STATUS.md, so the output is a drop-in replacement for the Drive board
     — plus an A13 alarm section computed from commit-time liveness (the
-    caller passes alarm rows; render_board does not call git itself)."""
+    caller passes alarm rows; render_board does not call git itself).
+
+    Questions first (F6): the Open questions section renders AHEAD of
+    the per-side task lines, and each side's line carries its owed
+    questions AHEAD of its current task (`owed:` before `current:`).
+    A Questions-first flags section follows the side lines: a side that
+    started a fold/task while a question was owed is flagged by name
+    here (see flags.py), even if it went around the claim gate."""
     now = now or datetime.now(timezone.utc)
     lines = [
         "# STATUS — Muse Bridge (rendered by muse-planning from state/*.md + issues.json)",
@@ -30,15 +39,23 @@ def render_board(states: dict[str, SideState], issues, now: datetime | None = No
         f"# Rendered: {now.strftime('%Y-%m-%dT%H:%M:%SZ')}",
         "",
     ]
-    for side in SIDES:
-        lines.append(states[side].board_line())
     open_q = [i for i in issues if i.state == "open"]
-    lines.append("")
     lines.append(f"## Open questions: {len(open_q)}")
-    for i in sorted(open_q, key=lambda x: x.number):
+    for i in sorted(open_q, key=lambda x: (x.created_at or datetime.min.replace(tzinfo=timezone.utc), x.number)):
         lines.append(
             f"- #{i.number} [{i.assignee}] {i.title} (asked in {i.asked_in})"
         )
+    lines.append("")
+    for side in SIDES:
+        lines.append(states[side].board_line(owed=open_questions_for(issues, side)))
+    lines.append("")
+    lines.append("## Questions-first flags (F6: answer before any fold/task)")
+    violations = find_violations(states, issues)
+    if violations:
+        for v in violations:
+            lines.append(f"- {format_flag(v)}")
+    else:
+        lines.append("- none")
     return "\n".join(lines) + "\n"
 
 
@@ -52,10 +69,13 @@ def render_board_with_alarm(repo: Repo, states, issues, now=None) -> str:
         q = (f"oldest open question #{r['oldest_open_question']} "
              f"{r['oldest_open_question_title']!r}" if r["oldest_open_question"]
              else "no open question")
-        lines.append(
+        line = (
             f"- {r['side']}: {stale} (last state commit {mins} ago) — {q}"
             + (f" — claim {r['claim']}" if r["claim"] else "")
         )
+        if r.get("questions_first_flag"):
+            line += f" — {r['questions_first_flag']}"
+        lines.append(line)
     return "\n".join(lines) + "\n"
 
 

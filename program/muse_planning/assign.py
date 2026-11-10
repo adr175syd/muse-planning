@@ -15,7 +15,9 @@ assigner picks, for the head ready backlog item:
 
 The assigner only PROPOSES. The side still claims the item itself (the
 claim goes through gate.claim, which re-checks every rule). Assignment
-never moves a fold/answer — those come through the queue.
+never moves a fold/answer — those come through the queue (see queue.py:
+owed questions head a side's queue, ahead of folds and tasks, and a
+side with an open question is not free here at all).
 """
 from __future__ import annotations
 
