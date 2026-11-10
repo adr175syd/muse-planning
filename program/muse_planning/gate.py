@@ -48,6 +48,15 @@ def open_questions_for(issues: list[Issue], side: str) -> list[Issue]:
     return [i for i in issues if i.assignee == side and i.state == "open"]
 
 
+# Claim kinds. "answer" is the answer to an owed question; "fold" a
+# fold (through the queue); "task" any other piece of work; "work" and
+# "research" are the older names for the same two (kept — main's CLI
+# and tests use them). NON_ANSWER_KINDS is every kind the F6 gate
+# refuses while a question is owed (i.e. everything but "answer").
+CLAIM_KINDS = ("answer", "fold", "task", "work", "research")
+NON_ANSWER_KINDS = ("fold", "task", "work", "research", "verification", "build")
+
+
 def check_answer_first(issues: list[Issue], side: str, item_kind: str, item_id: str) -> None:
     """F6. Raises Refusal naming the blocking question(s) unless this
     claim IS the answer to one of them."""
@@ -75,8 +84,13 @@ def check_answer_first(issues: list[Issue], side: str, item_kind: str, item_id: 
     names = ", ".join(f"#{i.number} {i.title!r}" for i in open_q)
     raise Refusal(
         f"answer-first: side {side} has open question(s) {names}; "
+        f"a {item_kind} claim is refused while they are owed — "
         f"answer the question(s) before any new claim (F6)"
     )
+
+
+# Harbor's name for the same gate (PR #2); kept as an alias.
+check_questions_first = check_answer_first
 
 
 def check_wip1(state: SideState) -> None:
@@ -118,9 +132,20 @@ def claim(repo: Repo, side: str, item_id: str, item_kind: str,
           item: BacklogItem | None, issues: list[Issue],
           state: SideState, at: datetime | None = None) -> SideState:
     """Grant a claim, returning the updated state (the caller writes it).
-    Raises Refusal with the reason on any failed gate."""
+    Raises Refusal with the reason on any failed gate. Kinds: "answer"
+    (the answer to an open question), "fold" (a fold, through the
+    queue), "task" (any other work), "work" (older name for "task"),
+    "research" (a backlog pull). A fold/task claim is refused by
+    answer-first like any other non-answer claim while a question is
+    owed; folds never auto-pull (A18) and are never watch-only claims
+    (A7 does not apply — a fold is unconditional work, not a watch)."""
     if side not in SIDES:
         raise Refusal(f"unknown side {side!r} (want one of {SIDES})")
+    if item_kind not in CLAIM_KINDS:
+        raise Refusal(
+            f"unknown claim kind {item_kind!r} "
+            f"(want one of {' | '.join(CLAIM_KINDS)})"
+        )
     at = at or now_utc()
     control = load_control(repo)
     ok, why = control_allows_claim(control)

@@ -64,7 +64,7 @@ class SideState:
     last_output: str = ""
     # claim: "" (none) or "<item-id>" while WIP 1 is held.
     claim: str = ""
-    claim_kind: str = ""  # "answer" | "work" | "research"
+    claim_kind: str = ""  # "answer" | "fold" | "task" | "work" | "research"
     claim_started: datetime | None = None
     # last assignment time, for rotation (least-recently-assigned first).
     last_assigned: datetime | None = None
@@ -109,13 +109,23 @@ class SideState:
             last_assigned=parse_time(fields["last-assigned"]) if fields.get("last-assigned") else None,
         )
 
-    def board_line(self) -> str:
+    def board_line(self, owed: list | None = None) -> str:
         """The side's one line on the rendered board (same shape as the
-        seeded STATUS.md lines: `- <side> | q: ... | current: ...`)."""
+        seeded STATUS.md lines: `- <side> | q: ... | current: ...`).
+
+        Questions-first (F6): the side's owed questions render on its
+        line AHEAD of its current task (`owed:` before `current:`), so
+        the board shows what a side owes before what it is working on.
+        `owed` is the side's open assigned questions (oldest first);
+        None renders `owed: none`."""
         q = "folds 0 / answers 0 / builds 0"
         started = fmt_time(self.started) if self.started else ""
+        if owed:
+            owed_txt = ", ".join(f"#{i.number} {i.title}" for i in owed)
+        else:
+            owed_txt = "none"
         return (
-            f"- {self.side} | q: {q} | current: {self.current}"
+            f"- {self.side} | q: {q} | owed: {owed_txt} | current: {self.current}"
             f" | started: {started} | est: {self.est}"
             f" | blocked-on: {self.blocked_on or 'nothing'}"
             f" | progress: {self.progress}"
@@ -161,6 +171,25 @@ class Issue:
         )
 
 
+PRIORITY_LEVELS = ("P1", "P2", "P3")
+# Word aliases for the levels (case-insensitive on parse). The team pins
+# the final level scheme by packet (JJ's priority-column order, Nov 10
+# 2026); P1/P2/P3 is the default, High/Med/Low are accepted as aliases.
+_PRIORITY_ALIASES = {"high": "P1", "med": "P2", "medium": "P2", "low": "P3",
+                     "p1": "P1", "p2": "P2", "p3": "P3"}
+_PRIORITY_RANK = {"P1": 0, "P2": 1, "P3": 2, "": 3}
+
+
+def normalize_priority(value: str) -> str:
+    """Normalize a priority label to P1/P2/P3 (or "" for none).
+
+    Accepts P1/P2/P3 and the High/Med/Low aliases, any case. An unknown
+    label is NOT an error — parse_backlog is tolerant everywhere else,
+    so it normalizes to "" (unprioritized) rather than failing the
+    whole backlog parse on a typo."""
+    return _PRIORITY_ALIASES.get((value or "").strip().lower(), "")
+
+
 @dataclass
 class BacklogItem:
     """One movable research item from BACKLOG.md."""
@@ -174,6 +203,17 @@ class BacklogItem:
     kind: str = "research"  # research | verification | fold | watch
     # kind is inferred: status `excluded`/`done` never move; a title that
     # names a fold/verification is kind=verification (A18 fence).
+    # Priority (JJ's priority-column order, Nov 10 2026): "" (none) or
+    # P1/P2/P3. A priority item orders ahead of unprioritized items in
+    # the queue and the assigner, and stays at the top of its section
+    # until done or explicitly deprioritized (priority set back to "").
+    # Owed questions carry no priority — F6 already puts them first.
+    priority: str = ""
+
+    @property
+    def priority_rank(self) -> int:
+        """Sort rank: P1 first, then P2, P3, then unprioritized."""
+        return _PRIORITY_RANK.get(self.priority, 3)
 
     @property
     def movable(self) -> bool:
@@ -189,7 +229,9 @@ def parse_backlog(text: str) -> list[BacklogItem]:
     working: Y | spec: ... | kill: ... | est: ... | status: ...`. Only
     lines under the 'Movable research items' or 'Excluded' sections are
     items — the 'Rules' bullets are not (they have no owner/spec/kill).
-    Continuation lines (indented notes) are ignored."""
+    Continuation lines (indented notes) are ignored. An item may carry
+    a `priority: P1|P2|P3` segment (aliases High/Med/Low); see
+    normalize_priority. Owed questions never appear here."""
     items: list[BacklogItem] = []
     in_items = False
     for line in text.splitlines():
@@ -223,6 +265,7 @@ def parse_backlog(text: str) -> list[BacklogItem]:
             est=fields.get("est", ""),
             status=fields.get("status", ""),
             kind=kind,
+            priority=normalize_priority(fields.get("priority", "")),
         ))
     return items
 

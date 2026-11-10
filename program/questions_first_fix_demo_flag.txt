@@ -1,0 +1,81 @@
+demo repo: /tmp/qf-demo-flag-3hbv0wh8 (temp fixture; CONTROL RUN seq 9)
+
+======================================================================
+1. The setup: question #12 owed to cc, asked 2026-11-10T02:34:38Z
+======================================================================
+issues.json: #12 [cc] 'What data does the mining need?' (asked in author 893, created 2026-11-10T02:34:38Z, open)
+
+======================================================================
+2. cc posts folds while #12 is owed (506 02:45:54Z, 507 02:59:35Z, 508 03:14:40Z)
+======================================================================
+state/cc.md last-output: packet 508 2026-11-10T03:14:40Z (~40 minutes after the question was asked)
+
+======================================================================
+3. `flags`: the fold-while-owed flag FIRES
+======================================================================
+$ flags
+exit 2:
+[
+  {
+    "side": "cc",
+    "question": 12,
+    "questions": [
+      12
+    ],
+    "question_title": "What data does the mining need?",
+    "question_titles": [
+      "What data does the mining need?"
+    ],
+    "asked_in": "author 893",
+    "question_created_at": "2026-11-10T02:34:38Z",
+    "claim": "",
+    "claim_kind": "",
+    "work_started": "",
+    "last_output": "packet 508 2026-11-10T03:14:40Z",
+    "last_output_time": "2026-11-10T03:14:40Z",
+    "evidence": [
+      "last output 'packet 508 2026-11-10T03:14:40Z' at 2026-11-10T03:14:40Z"
+    ],
+    "detail": "cc posted/claimed non-answer work while owed question(s) #12 'What data does the mining need?' \u2014 questions first (870 \u00a712 / F6); evidence: last output 'packet 508 2026-11-10T03:14:40Z' at 2026-11-10T03:14:40Z",
+    "flag": "FLAG questions-first: cc posted/claimed non-answer work while owed question(s) #12 'What data does the mining need?' \u2014 questions first (870 \u00a712 / F6); evidence: last output 'packet 508 2026-11-10T03:14:40Z' at 2026-11-10T03:14:40Z",
+    "rule": "questions-first (F6): answer the question before any fold/task"
+  }
+]
+
+======================================================================
+4. `render`: the board carries the flag (and the owed question on top)
+======================================================================
+$ render
+exit 0:
+# STATUS — Muse Bridge (rendered by muse-planning from state/*.md + issues.json)
+# Rendered, never hand-written. Each side owns only its own state file.
+# Rendered: 2026-11-10T16:44:25Z
+
+## Owed questions (head of queue — answer first): 1
+- #12 [cc] What data does the mining need? (asked in author 893) (asked 2026-11-10T02:34:38Z)
+
+- author | q: folds 0 / answers 0 / builds 0 | owed: none | current:  | started:  | est:  | blocked-on: nothing | progress:  | last output: packet 1 2026-11-09T00:00:00Z
+- harbor | q: folds 0 / answers 0 / builds 0 | owed: none | current:  | started:  | est:  | blocked-on: nothing | progress:  | last output: packet 1 2026-11-09T00:00:00Z
+- cc | q: folds 0 / answers 0 / builds 0 | owed: #12 What data does the mining need? | current:  | started:  | est:  | blocked-on: nothing | progress:  | last output: packet 508 2026-11-10T03:14:40Z
+
+## Queue (questions first)
+1. [answer] cc: answer:12 — What data does the mining need? | prio —  <-- HEAD OF QUEUE
+2. [task] time-data rows C1/C2/retry — time-data rows C1/C2/retry (status ready) | prio —
+3. [task] Swing Clock odds-reuse design — Swing Clock odds-reuse design (status ready) | prio —
+
+## Questions-first flags (F6: answer before any fold/task)
+- FLAG questions-first: cc posted/claimed non-answer work while owed question(s) #12 'What data does the mining need?' — questions first (870 §12 / F6); evidence: last output 'packet 508 2026-11-10T03:14:40Z' at 2026-11-10T03:14:40Z
+
+## A13 alarm (commit-time liveness)
+- author: ok (last state commit unknown ago) — no open question
+- harbor: ok (last state commit unknown ago) — no open question
+- cc: STALE (last state commit unknown ago) — oldest open question #12 'What data does the mining need?' — FLAG questions-first: cc posted/claimed non-answer work while owed question(s) #12 'What data does the mining need?' — questions first (870 §12 / F6); evidence: last output 'packet 508 2026-11-10T03:14:40Z' at 2026-11-10T03:14:40Z
+
+======================================================================
+5. `poll`: the watcher digest WAKES on the flag (and on nothing else)
+======================================================================
+$ poll --side author
+exit 0:
+{"mode": "RUN", "seq": "9", "wake": true, "new_questions": [], "stale_sides": [], "questions_first_flags": [{"side": "cc", "question": 12, "questions": [12], "question_title": "What data does the mining need?", "question_titles": ["What data does the mining need?"], "asked_in": "author 893", "question_created_at": "2026-11-10T02:34:38Z", "claim": "", "claim_kind": "", "work_started": "", "last_output": "packet 508 2026-11-10T03:14:40Z", "last_output_time": "2026-11-10T03:14:40Z", "evidence": ["last output 'packet 508 2026-11-10T03:14:40Z' at 2026-11-10T03:14:40Z"], "detail": "cc posted/claimed non-answer work while owed question(s) #12 'What data does the mining need?' \u2014 questions first (870 \u00a712 / F6); evidence: last output 'packet 508 2026-11-10T03:14:40Z' at 2026-11-10T03:14:40Z", "flag": "FLAG questions-first: cc posted/claimed non-answer work while owed question(s) #12 'What data does the mining need?' \u2014 questions first (870 \u00a712 / F6); evidence: last output 'packet 508 2026-11-10T03:14:40Z' at 2026-11-10T03:14:40Z", "rule": "questions-first (F6): answer the question before any fold/task"}], "question_violations": [{"side": "cc", "question": 12, "questions": [12], "question_title": "What data does the mining need?", "question_titles": ["What data does the mining need?"], "asked_in": "author 893", "question_created_at": "2026-11-10T02:34:38Z", "claim": "", "claim_kind": "", "work_started": "", "last_output": "packet 508 2026-11-10T03:14:40Z", "last_output_time": "2026-11-10T03:14:40Z", "evidence": ["last output 'packet 508 2026-11-10T03:14:40Z' at 2026-11-10T03:14:40Z"], "detail": "cc posted/claimed non-answer work while owed question(s) #12 'What data does the mining need?' \u2014 questions first (870 \u00a712 / F6); evidence: last output 'packet 508 2026-11-10T03:14:40Z' at 2026-11-10T03:14:40Z", "flag": "FLAG questions-first: cc posted/claimed non-answer work while owed question(s) #12 'What data does the mining need?' \u2014 questions first (870 \u00a712 / F6); evidence: last output 'packet 508 2026-11-10T03:14:40Z' at 2026-11-10T03:14:40Z", "rule": "questions-first (F6): answer the question before any fold/task"}], "open_questions": {"author": 0, "harbor": 0, "cc": 1}}
+
+DEMONSTRATION 2 COMPLETE: the flag fires on `flags`, on the board, and in the watcher digest — the cc 506/507/508 case can no longer pass silently.

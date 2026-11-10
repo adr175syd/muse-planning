@@ -7,7 +7,7 @@ Usage (repo root = the checkout of adr175syd/muse-planning, default `.`):
       (use --write to also write board/STATUS.md via F1).
   python3 -m muse_planning migrate [--root DIR]
       One-time: parse the seeded STATUS.md into state/<side>.md.
-  python3 -m muse_planning claim --side author --item <id> --kind <answer|work|research>
+  python3 -m muse_planning claim --side author --item <id> --kind <answer|fold|task|work|research>
       Claim one item (answer-first, WIP 1, A7, A18, CONTROL gates apply).
   python3 -m muse_planning release --side author
   python3 -m muse_planning progress --side author --note "..."
@@ -18,15 +18,32 @@ Usage (repo root = the checkout of adr175syd/muse-planning, default `.`):
   python3 -m muse_planning assign
       Assign the head ready backlog item to the least-recently-assigned
       free side (rotation). Prints the assignment; the side still claims
-      it itself (claim re-checks every gate).
+      it itself (claim re-checks every gate). An answerable owed
+      question is assigned before any backlog item (questions-first).
+  python3 -m muse_planning queue [--side cc]
+      Show the work queue, questions first: owed answers, then the
+      current claim, then the backlog pool by priority (P1 first).
+      Without --side, the one global queue; with --side, that side's.
+  python3 -m muse_planning flags
+      Questions-first flags: sides that posted/claimed non-answer work
+      while a question was owed. Prints JSON rows; exits 2 while any
+      flag stands, 0 when clear ("No questions-first flags").
+  python3 -m muse_planning priority --item "<title>" --level P1|P2|P3|none
+      Set (or clear, with `none`) a backlog item's priority. The item
+      is matched by title substring; ambiguous matches are refused.
+      Writes BACKLOG.md via F1 (aborts if the file moved under us).
   python3 -m muse_planning merge --proposals FILE
       Assign ledger numbers serially at merge (FILE is JSON lines of
       {"proposed": <n|null>, "text": "..."}). Prints numbered lines.
   python3 -m muse_planning alarm
       A13 alarm rows (commit-time liveness + oldest open question).
+  python3 -m muse_planning flags
+      Questions-first flags: sides that posted output while a question
+      was owed to them (fold-while-owed detector). Prints JSON rows.
   python3 -m muse_planning poll --side author
       Watcher contract: one digest line (JSON). CONTROL PAUSED/WIND-DOWN
-      prints {"mode": ..., "wake": false} and exits 0 — silent.
+      prints {"mode": ..., "wake": false} and exits 0 — silent. A
+      questions-first flag wakes the watcher, like a stale side.
 
 All commands are offline: they read the repo checkout only. No GitHub
 API calls, no network. The watcher syncs issues.json from GitHub
@@ -43,12 +60,15 @@ from pathlib import Path
 from . import __version__
 from .assign import assign as do_assign
 from .board import migrate_status_to_state, render_board_with_alarm, write_state
-from .gate import (answer_question, ask_question, claim as do_claim,
-                   load_control, record_progress, release as do_release)
+from .flags import find_violations as do_flags
+from .gate import (CLAIM_KINDS, answer_question, ask_question,
+                   claim as do_claim, load_control, record_progress,
+                   release as do_release)
 from .ledger import merge_file
 from .liveness import alarm as do_alarm
 from .model import (SIDES, SideState, dump_issues, load_issues,
-                    parse_backlog)
+                    normalize_priority, parse_backlog)
+from .queue import format_queue, ordered_queue, ordered_queue_all
 from .store import Repo, Refusal, atomic_write, f1_write, sha256_hex
 
 
@@ -79,7 +99,8 @@ def cmd_render(args) -> int:
     repo = _repo(args)
     states = _load_states(repo)
     issues = _load_issues(repo)
-    out = render_board_with_alarm(repo, states, issues)
+    items = parse_backlog(repo.backlog_path().read_text(encoding="utf-8"))
+    out = render_board_with_alarm(repo, states, issues, items)
     if args.write:
         board = repo.board_path()
         if board.exists():
@@ -189,6 +210,89 @@ def cmd_alarm(args) -> int:
     return 0
 
 
+def cmd_flags(args) -> int:
+    """Questions-first flags. Prints JSON rows when any flag stands and
+    exits 2 (the program's refusal/blocked code — a standing flag means
+    a side is in breach of F6, the same class as a refused claim, not a
+    generic error, so it is NOT exit 1); prints "No questions-first
+    flags" and exits 0 when clear."""
+    repo = _repo(args)
+    states = _load_states(repo)
+    issues = _load_issues(repo)
+    rows = do_flags(states, issues)
+    if not rows:
+        print("No questions-first flags")
+        return 0
+    print(json.dumps(rows, indent=2))
+    return 2
+
+
+def cmd_queue(args) -> int:
+    """Show the work queue, questions first, with the priority column.
+    Without --side: the one global queue (Harbor). With --side: that
+    side's queue (cc). The head entry is marked HEAD OF QUEUE."""
+    repo = _repo(args)
+    states = _load_states(repo)
+    issues = _load_issues(repo)
+    items = parse_backlog(repo.backlog_path().read_text(encoding="utf-8"))
+    if args.side:
+        entries = ordered_queue(args.side, issues, states[args.side], items)
+        print(format_queue(entries, show_side=False) or "(empty)")
+    else:
+        entries = ordered_queue_all(states, issues, items)
+        print(format_queue(entries, show_side=True) or "(empty)")
+    return 0
+
+
+def cmd_priority(args) -> int:
+    """Set (or clear, with --level none) a backlog item's priority.
+    Matched by title substring, case-insensitive; ambiguous or missing
+    matches are refused. Rewrites the one BACKLOG.md line via F1 (the
+    file must not have moved under us)."""
+    repo = _repo(args)
+    path = repo.backlog_path()
+    text = path.read_text(encoding="utf-8")
+    if args.level.lower() == "none":
+        level = ""
+    else:
+        level = normalize_priority(args.level)
+        if not level:
+            raise Refusal(
+                f"unknown priority level {args.level!r} "
+                f"(want P1 | P2 | P3 | High | Med | Low | none)"
+            )
+    lines = text.split("\n")
+    matches = []
+    for n, line in enumerate(lines):
+        if not line.startswith("- "):
+            continue
+        title = line[2:].split(" | ", 1)[0]
+        if args.item.lower() in title.lower():
+            matches.append((n, title))
+    if not matches:
+        raise Refusal(f"no backlog item matching {args.item!r}")
+    if len(matches) > 1:
+        names = ", ".join(repr(t) for _, t in matches)
+        raise Refusal(
+            f"ambiguous --item {args.item!r}: matches {names} — "
+            f"give a longer substring"
+        )
+    n, title = matches[0]
+    segments = [s.strip() for s in lines[n][2:].split(" | ")]
+    segments = [s for s in segments
+                if not s.lower().startswith("priority:")]
+    if level:
+        segments.insert(1, f"priority: {level}")
+    lines[n] = "- " + " | ".join(segments)
+    base = sha256_hex(path.read_bytes())
+    f1_write(path, base, ("\n".join(lines)).encode("utf-8"))
+    if level:
+        print(f"PRIORITY {title!r} <- {level}")
+    else:
+        print(f"PRIORITY {title!r} <- none (deprioritized)")
+    return 0
+
+
 def cmd_poll(args) -> int:
     """Watcher contract. One JSON digest line. The existing watcher calls
     this every 20-60s; it does NOT create a second watcher. CONTROL
@@ -213,13 +317,23 @@ def cmd_poll(args) -> int:
     new_q = [i.number for i in mine if i.number not in seen]
     rows = do_alarm(str(repo.root), states, issues)
     stale = [r["side"] for r in rows if r["stale"]]
-    wake = bool(new_q) or bool(stale)
+    flags = do_flags(states, issues)
+    # Wake on ANY side's flag, not only the polling side's: the
+    # violating side is the one least likely to self-correct (cc posted
+    # three folds while owed and its own watcher woke on nothing), so
+    # the other sides must wake and nudge. A13 staleness already wakes
+    # on any side; flags follow the same rule.
+    wake = bool(new_q) or bool(stale) or bool(flags)
     seen |= {i.number for i in mine}
     atomic_write(seen_path, json.dumps(sorted(seen)).encode("utf-8"))
     print(json.dumps({
         "mode": mode, "seq": control.get("control-seq"), "wake": wake,
         "new_questions": new_q,
         "stale_sides": stale,
+        "questions_first_flags": flags,
+        # Harbor's name for the same rows (PR #2); same list, so either
+        # side's watcher reads the digest unchanged.
+        "question_violations": flags,
         "open_questions": {s: len([i for i in issues if i.assignee == s and i.state == "open"]) for s in SIDES},
     }))
     return 0
@@ -239,7 +353,7 @@ def build_parser() -> argparse.ArgumentParser:
     c = sub.add_parser("claim", help="claim one item (gates apply)")
     c.add_argument("--side", required=True, choices=list(SIDES))
     c.add_argument("--item", required=True)
-    c.add_argument("--kind", required=True, choices=["answer", "work", "research"])
+    c.add_argument("--kind", required=True, choices=list(CLAIM_KINDS))
     c.set_defaults(fn=cmd_claim)
     r2 = sub.add_parser("release", help="release a held claim")
     r2.add_argument("--side", required=True, choices=list(SIDES))
@@ -264,6 +378,16 @@ def build_parser() -> argparse.ArgumentParser:
     mg.set_defaults(fn=cmd_merge)
     al = sub.add_parser("alarm", help="A13 alarm rows")
     al.set_defaults(fn=cmd_alarm)
+    fl = sub.add_parser("flags", help="questions-first flags (fold while a question is owed)")
+    fl.set_defaults(fn=cmd_flags)
+    qu = sub.add_parser("queue", help="work queue, questions first (global, or --side for one side)")
+    qu.add_argument("--side", choices=list(SIDES), default=None,
+                    help="one side's queue (default: the global queue)")
+    qu.set_defaults(fn=cmd_queue)
+    py = sub.add_parser("priority", help="set/clear a backlog item's priority (P1|P2|P3|none)")
+    py.add_argument("--item", required=True, help="title substring of the backlog item")
+    py.add_argument("--level", required=True, help="P1 | P2 | P3 | High | Med | Low | none")
+    py.set_defaults(fn=cmd_priority)
     po = sub.add_parser("poll", help="watcher digest (one JSON line)")
     po.add_argument("--side", required=True, choices=list(SIDES))
     po.set_defaults(fn=cmd_poll)
