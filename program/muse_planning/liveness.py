@@ -16,6 +16,7 @@ import subprocess
 from datetime import datetime, timezone
 
 from .model import STALE_MINUTES, Issue, SideState, parse_time
+from .queue import question_violations
 
 GIT_TIMEOUT_S = 10
 
@@ -69,6 +70,7 @@ def alarm(repo_root: str, states: dict[str, SideState],
     """A13 alarm rows, one per side: staleness (minutes since last
     state-file commit) next to the oldest open assigned question."""
     now = now or datetime.now(timezone.utc)
+    violations = {v["side"]: v for v in question_violations(states, issues)}
     rows = []
     for side in ("author", "harbor", "cc"):
         rel = f"state/{side}.md"
@@ -76,6 +78,7 @@ def alarm(repo_root: str, states: dict[str, SideState],
         mins = staleness_minutes(last, now)
         q = oldest_open_question(issues, side)
         pending = q is not None or bool(states[side].claim)
+        v = violations.get(side)
         rows.append({
             "side": side,
             "last_commit": last.isoformat() if last else None,
@@ -84,5 +87,11 @@ def alarm(repo_root: str, states: dict[str, SideState],
             "oldest_open_question": q.number if q else None,
             "oldest_open_question_title": q.title if q else "",
             "claim": states[side].claim,
+            # Questions-first flag (870 §12): a fold/task claimed or
+            # posted while a question was owed. Independent of
+            # staleness — it fires immediately, not after 60 minutes.
+            "question_violation": v is not None,
+            "question_violation_detail": v["detail"] if v else "",
+            "question_violation_evidence": v["evidence"] if v else [],
         })
     return rows

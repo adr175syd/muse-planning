@@ -7,8 +7,16 @@ Usage (repo root = the checkout of adr175syd/muse-planning, default `.`):
       (use --write to also write board/STATUS.md via F1).
   python3 -m muse_planning migrate [--root DIR]
       One-time: parse the seeded STATUS.md into state/<side>.md.
-  python3 -m muse_planning claim --side author --item <id> --kind <answer|work|research>
-      Claim one item (answer-first, WIP 1, A7, A18, CONTROL gates apply).
+  python3 -m muse_planning claim --side author --item <id> --kind <answer|fold|task|work|research>
+      Claim one item (questions-first / answer-first, WIP 1, A7, A18,
+      CONTROL gates apply). A fold/task claim is REFUSED while the
+      side owes an open question (870 §12).
+  python3 -m muse_planning queue
+      Print the unified queue in order: owed questions at the HEAD,
+      then folds, then tasks.
+  python3 -m muse_planning flags
+      Print questions-first violation flags (a fold/task claimed or
+      posted while a question was owed). Exit 1 when any flag fires.
   python3 -m muse_planning release --side author
   python3 -m muse_planning progress --side author --note "..."
   python3 -m muse_planning ask --assignee cc --title "..." --asked-in "author 882"
@@ -49,6 +57,7 @@ from .ledger import merge_file
 from .liveness import alarm as do_alarm
 from .model import (SIDES, SideState, dump_issues, load_issues,
                     parse_backlog)
+from .queue import ordered_queue, question_violations
 from .store import Repo, Refusal, atomic_write, f1_write, sha256_hex
 
 
@@ -180,6 +189,34 @@ def cmd_merge(args) -> int:
     return 0
 
 
+def cmd_queue(args) -> int:
+    repo = _repo(args)
+    states = _load_states(repo)
+    issues = _load_issues(repo)
+    items = []
+    if repo.backlog_path().exists():
+        items = parse_backlog(repo.backlog_path().read_text(encoding="utf-8"))
+    queue = ordered_queue(states, issues, items)
+    if not queue:
+        print("(queue empty)")
+        return 0
+    for n, e in enumerate(queue, start=1):
+        who = e.side or "unassigned"
+        print(f"{n}. [{e.kind}] {who}: {e.title} ({e.ref})")
+    return 0
+
+
+def cmd_flags(args) -> int:
+    repo = _repo(args)
+    states = _load_states(repo)
+    issues = _load_issues(repo)
+    violations = question_violations(states, issues)
+    for v in violations:
+        print(f"FLAG {v['detail']} — evidence: " + "; ".join(v["evidence"]))
+    print(json.dumps(violations, indent=2))
+    return 1 if violations else 0
+
+
 def cmd_alarm(args) -> int:
     repo = _repo(args)
     states = _load_states(repo)
@@ -213,13 +250,17 @@ def cmd_poll(args) -> int:
     new_q = [i.number for i in mine if i.number not in seen]
     rows = do_alarm(str(repo.root), states, issues)
     stale = [r["side"] for r in rows if r["stale"]]
-    wake = bool(new_q) or bool(stale)
+    violations = question_violations(states, issues)
+    # A questions-first violation wakes the watcher immediately —
+    # the same way a stale claim does, not 45 minutes later.
+    wake = bool(new_q) or bool(stale) or bool(violations)
     seen |= {i.number for i in mine}
     atomic_write(seen_path, json.dumps(sorted(seen)).encode("utf-8"))
     print(json.dumps({
         "mode": mode, "seq": control.get("control-seq"), "wake": wake,
         "new_questions": new_q,
         "stale_sides": stale,
+        "question_violations": violations,
         "open_questions": {s: len([i for i in issues if i.assignee == s and i.state == "open"]) for s in SIDES},
     }))
     return 0
@@ -239,8 +280,12 @@ def build_parser() -> argparse.ArgumentParser:
     c = sub.add_parser("claim", help="claim one item (gates apply)")
     c.add_argument("--side", required=True, choices=list(SIDES))
     c.add_argument("--item", required=True)
-    c.add_argument("--kind", required=True, choices=["answer", "work", "research"])
+    c.add_argument("--kind", required=True, choices=["answer", "fold", "task", "work", "research"])
     c.set_defaults(fn=cmd_claim)
+    q = sub.add_parser("queue", help="unified queue, questions at the head")
+    q.set_defaults(fn=cmd_queue)
+    fl = sub.add_parser("flags", help="questions-first violation flags (exit 1 if any)")
+    fl.set_defaults(fn=cmd_flags)
     r2 = sub.add_parser("release", help="release a held claim")
     r2.add_argument("--side", required=True, choices=list(SIDES))
     r2.set_defaults(fn=cmd_release)

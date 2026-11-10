@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 
 from .liveness import alarm
 from .model import SIDES, SideState, parse_status_line, parse_time
+from .queue import open_questions, ordered_queue, question_violations
 from .store import Repo, atomic_write
 
 
@@ -22,7 +23,14 @@ def render_board(states: dict[str, SideState], issues, now: datetime | None = No
     """Render the STATUS view. Same one-line-per-side shape as the seeded
     STATUS.md, so the output is a drop-in replacement for the Drive board
     — plus an A13 alarm section computed from commit-time liveness (the
-    caller passes alarm rows; render_board does not call git itself)."""
+    caller passes alarm rows; render_board does not call git itself).
+
+    Questions first (870 §12): owed questions render at the HEAD of
+    the board, ahead of every side's task lines, and the unified queue
+    renders in queue order (questions, then folds, then tasks) before
+    the per-side lines — the state that was invisible when the
+    mining-data question waited behind three folds is now the first
+    thing on the board."""
     now = now or datetime.now(timezone.utc)
     lines = [
         "# STATUS — Muse Bridge (rendered by muse-planning from state/*.md + issues.json)",
@@ -30,15 +38,29 @@ def render_board(states: dict[str, SideState], issues, now: datetime | None = No
         f"# Rendered: {now.strftime('%Y-%m-%dT%H:%M:%SZ')}",
         "",
     ]
+    open_q = open_questions(issues)
+    lines.append(f"## Open questions: {len(open_q)} — owed questions are HEAD of queue (questions first, 870 §12)")
+    for i in open_q:
+        lines.append(
+            f"- #{i.number} [{i.assignee}] {i.title} (asked in {i.asked_in}) — HEAD OF QUEUE"
+        )
+    lines.append("")
+    lines.append("## Queue (questions first)")
+    queue = ordered_queue(states, issues)
+    if not queue:
+        lines.append("- (empty)")
+    for n, e in enumerate(queue, start=1):
+        who = e.side or "unassigned"
+        lines.append(f"- {n}. [{e.kind}] {who}: {e.title} ({e.ref})")
+    lines.append("")
     for side in SIDES:
         lines.append(states[side].board_line())
-    open_q = [i for i in issues if i.state == "open"]
-    lines.append("")
-    lines.append(f"## Open questions: {len(open_q)}")
-    for i in sorted(open_q, key=lambda x: x.number):
-        lines.append(
-            f"- #{i.number} [{i.assignee}] {i.title} (asked in {i.asked_in})"
-        )
+    violations = question_violations(states, issues)
+    if violations:
+        lines.append("")
+        lines.append("## Questions-first violations (FLAG)")
+        for v in violations:
+            lines.append(f"- FLAG {v['detail']} — evidence: " + "; ".join(v["evidence"]))
     return "\n".join(lines) + "\n"
 
 
@@ -55,6 +77,7 @@ def render_board_with_alarm(repo: Repo, states, issues, now=None) -> str:
         lines.append(
             f"- {r['side']}: {stale} (last state commit {mins} ago) — {q}"
             + (f" — claim {r['claim']}" if r["claim"] else "")
+            + (" — FLAG QUESTIONS-FIRST VIOLATION" if r.get("question_violation") else "")
         )
     return "\n".join(lines) + "\n"
 

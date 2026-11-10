@@ -5,9 +5,13 @@ refusal names its reason):
   1. CONTROL: mode PAUSED (or WIND-DOWN for non-redesign work) refuses
      every claim — no new work starts; resume only on John's word (A4).
      The program never changes mode itself.
-  2. Answer-first (F6): a side with an open assigned question may claim
-     ONLY the answer item for that question. Any other claim is refused
-     and names the blocking question(s).
+  2. Questions-first (870 §12, F6): a side with an open assigned
+     (owed) question may claim ONLY the answer item for that question.
+     Every other claim — fold, task, work or research, no exceptions
+     for kind — is refused and names the blocking question(s). This is
+     enforcement, not a promise: there is no claim path around it, and
+     a fold/task claimed or posted outside this path is flagged by
+     queue.question_violations (board / alarm / poll).
   3. WIP 1: a side holding a claim may not take a second one.
   4. A7 in the assigner: a watch/read-only item is never a side's sole
      item — it is refused as a claim unless the side already holds an
@@ -48,9 +52,18 @@ def open_questions_for(issues: list[Issue], side: str) -> list[Issue]:
     return [i for i in issues if i.assignee == side and i.state == "open"]
 
 
+# Every non-answer kind a claim can carry. Questions-first applies to
+# all of them identically — listing them explicitly so a new kind (fold,
+# task) can never slip past the gate by not being named in it.
+NON_ANSWER_KINDS = ("fold", "task", "work", "research", "verification", "build")
+
+
 def check_answer_first(issues: list[Issue], side: str, item_kind: str, item_id: str) -> None:
-    """F6. Raises Refusal naming the blocking question(s) unless this
-    claim IS the answer to one of them."""
+    """Questions-first (870 §12 / F6). Raises Refusal naming the
+    blocking question(s) unless this claim IS the answer to one of
+    them. A fold or task claim is refused exactly like any other
+    non-answer claim: a side cannot claim a fold until the owed
+    question is answered."""
     open_q = open_questions_for(issues, side)
     if not open_q:
         return
@@ -74,9 +87,15 @@ def check_answer_first(issues: list[Issue], side: str, item_kind: str, item_id: 
         )
     names = ", ".join(f"#{i.number} {i.title!r}" for i in open_q)
     raise Refusal(
-        f"answer-first: side {side} has open question(s) {names}; "
-        f"answer the question(s) before any new claim (F6)"
+        f"answer-first (questions-first, 870 §12): side {side} has owed "
+        f"open question(s) {names}; a {item_kind} claim is refused — "
+        f"answer the question(s) before claiming any fold, task or "
+        f"other work (F6)"
     )
+
+
+# Name the rule the way the standing order names it.
+check_questions_first = check_answer_first
 
 
 def check_wip1(state: SideState) -> None:

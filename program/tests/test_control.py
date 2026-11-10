@@ -32,12 +32,16 @@ class ControlCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_control("control-seq: 9\n")
 
-    def test_real_seeded_control_is_paused_seq_8(self):
+    def test_real_seeded_control_is_run_seq_9(self):
+        # The seeded CONTROL was synced to RUN seq 9 on resume
+        # (commit a5d854d, TZ's "Resume" 2026-11-09 17:06 ET). The
+        # previous PAUSED seq 8 expectation went stale at that sync
+        # and failed on a clean checkout of main before this change.
         seed = Path(__file__).resolve().parent.parent.parent
         c = parse_control((seed / "CONTROL.md").read_text(encoding="utf-8"))
-        self.assertEqual(c["mode"], "PAUSED")
-        self.assertEqual(c["control-seq"], "8")
-        self.assertEqual(c["set_by"], "author")
+        self.assertEqual(c["mode"], "RUN")
+        self.assertEqual(c["control-seq"], "9")
+        self.assertEqual(c["set_by"], "harbor")
 
 
 if __name__ == "__main__":

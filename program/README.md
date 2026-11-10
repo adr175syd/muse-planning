@@ -13,6 +13,7 @@ program/
     model.py              data + parsers (state files, issues, backlog, CONTROL)
     store.py              paths, hashing, atomic writes, F1 checked writes
     gate.py               answer-first (F6), WIP 1, A7, A18, CONTROL gates
+    queue.py              questions-first queue order (870 §12) + violation flags
     assign.py             assigner: rotate the load, least-recently-assigned
     ledger.py             merge-time serial ledger numbering
     liveness.py           git-commit-time liveness + A13 alarm
@@ -38,6 +39,20 @@ program/
    the refusal names the blocking question(s). `ask` files a question
    as an Issue the same cycle it is asked; the program assigns its
    number serially and the packet cites it.
+3b. **Questions-first enforcement (870 §12).** The rule above is now
+   structural, not a promise (the mining-data question, author 893
+   §12, waited ~45 min while three folds posted, with no flag):
+   (1) `queue.py:ordered_queue` puts every owed question at the HEAD
+   of the unified queue, ahead of folds and tasks — the board renders
+   owed questions and the queue in that order, ahead of task lines;
+   (2) the claim gate refuses fold and task claims explicitly, like
+   every other non-answer kind — a side cannot claim a fold until the
+   owed question is answered; (3) `queue.question_violations` flags a
+   fold/task claimed or posted *outside* the gate while a question
+   was owed (evidence: the side's own state file — held non-answer
+   claim, fold current item, or fold last-output), rendered on the
+   board, carried in A13 alarm rows, returned by `poll` (which wakes
+   on it), and printed by the `flags` command (exit 1 when firing).
 4. **Merge-time ledger numbering.** Writers propose text; `merge`
    assigns serial numbers from `ledger.json` at merge. Handwritten
    numbers are never trusted (duplicates are reported, each line still
@@ -75,6 +90,9 @@ python3 -m muse_planning --root .. render --write   # + write board/STATUS.md (F
 python3 -m muse_planning --root .. poll --side author
 python3 -m muse_planning --root .. assign
 python3 -m muse_planning --root .. claim --side author --item "time-data rows C1/C2/retry" --kind research
+python3 -m muse_planning --root .. claim --side cc --item "fold of author 893" --kind fold   # REFUSED while cc owes a question
+python3 -m muse_planning --root .. queue     # owed questions at the head, then folds, then tasks
+python3 -m muse_planning --root .. flags     # questions-first violation flags (exit 1 if any)
 python3 -m muse_planning --root .. ask --assignee cc --title "TUNE-2 vote?" --asked-in "author 882"
 python3 -m muse_planning --root .. answer --number 1
 python3 -m muse_planning --root .. alarm

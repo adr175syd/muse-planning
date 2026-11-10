@@ -8,6 +8,9 @@ Runs fully offline in a temp dir (a copy of the seeded repo root):
   (d) the assigner rotates across sides and never double-assigns (WIP 1)
   (e) ledger numbers are assigned serially at merge with no duplicates
   (f) liveness reads commit times
+  (g) questions-first (870 §12): an owed question heads the queue, a
+      fold claim is refused while it is owed, and a fold posted outside
+      the gate is flagged on the board / poll
 
 Usage: python3 demo.py
 """
@@ -29,6 +32,8 @@ from muse_planning.gate import (answer_question, ask_question,  # noqa: E402
 from muse_planning.ledger import merge_file  # noqa: E402
 from muse_planning.liveness import alarm  # noqa: E402
 from muse_planning.model import SideState, parse_backlog  # noqa: E402
+from muse_planning.queue import (ordered_queue,  # noqa: E402
+                                 question_violations)
 from muse_planning.store import (Refusal, Repo, StaleBaseError,  # noqa: E402
                                  f1_write, sha256_hex)
 
@@ -142,6 +147,32 @@ def main():
               f"last_commit={row['last_commit']} "
               f"stale_minutes={row['stale_minutes']} "
               f"oldest_open_question={row['oldest_open_question']}")
+
+    # (g) Questions-first: head, refusal, and the bypass flag.
+    section("(g) Questions-first (870 §12): head, refusal, flag")
+    issues2 = []
+    q2 = ask_question(issues2, "mining-data question (893 §12)", "", "cc",
+                      "author 893")
+    for side in states.values():
+        side.claim = ""
+        side.current = ""
+        side.last_output = ""
+    states["harbor"].claim = "fold of author 880"
+    states["harbor"].claim_kind = "fold"
+    queue = ordered_queue(states, issues2, items)
+    print("queue order: " + " -> ".join(
+        f"[{e.kind}] {e.title}" for e in queue[:3]))
+    print(f"head is the owed question: {queue[0].kind == 'question' and queue[0].ref == f'answer:{q2.number}'}")
+    try:
+        claim(repo, "cc", "fold 506", "fold", None, issues2, states["cc"])
+        print("ERROR: fold claim granted while the question was owed")
+    except Refusal as e:
+        print(f"FOLD CLAIM REFUSED (expected): {e}")
+    # Bypass: cc posts the fold anyway and records it in its state.
+    states["cc"].current = "fold 506"
+    states["cc"].last_output = "fold 506 posted"
+    for v in question_violations(states, issues2):
+        print(f"FLAG (expected): {v['detail']} — evidence: " + "; ".join(v["evidence"]))
 
     print(f"\nDemo complete. Temp repo kept at {root} for inspection.")
     return 0

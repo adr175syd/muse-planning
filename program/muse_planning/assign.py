@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 
 from .gate import check_a18, check_a7
 from .model import SIDES_ORDER, BacklogItem, Issue, SideState
+from .queue import head_for_side
 from .store import Refusal
 
 
@@ -77,5 +78,15 @@ def assign(states: dict[str, SideState], items: list[BacklogItem],
     check_a18(head)
     check_a7(head)
     side = free[0]
+    # Questions-first (870 §12), defence in depth: the chosen side's
+    # queue head must not be an owed question. free_sides already
+    # excludes owed sides; if that ever changes, refuse here rather
+    # than assign a task ahead of a question.
+    qhead = head_for_side(side, states, issues)
+    if qhead is not None and qhead.kind == "question":
+        raise Refusal(
+            f"assigner: side {side} owes question {qhead.ref} "
+            f"{qhead.title!r} — questions first, no task assigned (870 §12)"
+        )
     states[side].last_assigned = at
     return side, head
