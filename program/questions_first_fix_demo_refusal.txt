@@ -1,4 +1,4 @@
-demo repo: /tmp/qf-demo-refusal-guprjxbs (temp fixture; CONTROL RUN seq 9)
+demo repo: /tmp/qf-demo-refusal-hrd4gkrl (temp fixture; CONTROL RUN seq 9)
 
 ======================================================================
 1. The data question is asked of cc (893 §12, 2026-11-10T02:34:38Z)
@@ -9,8 +9,8 @@ exit 0: QUESTION #1 -> cc: 'What data does the mining need?' (asked in author 89
 ======================================================================
 2. cc tries to claim a fold while the question is owed -> REFUSED
 ======================================================================
-$ claim --side cc --item 'fold of author 886' --kind work
-exit 2: REFUSED: answer-first: side cc has open question(s) #1 'What data does the mining need?'; answer the question(s) before any new claim (F6)
+$ claim --side cc --item 'fold of author 886' --kind fold
+exit 2: REFUSED: answer-first: side cc has open question(s) #1 'What data does the mining need?'; a fold claim is refused while they are owed — answer the question(s) before any new claim (F6)
 
 ======================================================================
 3. The assigner returns the ANSWER first, ahead of backlog work
@@ -31,7 +31,7 @@ exit 0: ANSWERED #1: 'What data does the mining need?'
 ======================================================================
 $ release --side cc   (release the answer claim)
 exit 0: RELEASED cc
-$ claim --side cc --item 'fold of author 886' --kind work
-exit 0: CLAIMED cc <- fold of author 886 (work)
+$ claim --side cc --item 'fold of author 886' --kind fold
+exit 0: CLAIMED cc <- fold of author 886 (fold)
 
 DEMONSTRATION 1 COMPLETE: fold refused while the question was owed; answer assigned first; fold granted only after the answer.

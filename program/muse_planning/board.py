@@ -13,12 +13,24 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from .liveness import alarm, questions_first_flags
+from .flags import find_violations, format_flag
+from .liveness import alarm
 from .model import SIDES, SideState, parse_status_line, parse_time
+from .queue import format_queue, open_questions_for, ordered_queue_all
 from .store import Repo, atomic_write
 
 
-def render_board(states: dict[str, SideState], issues, now: datetime | None = None) -> str:
+def _repo_root(repo) -> str:
+    """render_board_with_alarm takes a Repo in production; the tests
+    pass the repo root Path. Accept both (a Path's `.root` is `/`, so
+    test for Repo explicitly rather than probing attributes)."""
+    if isinstance(repo, Repo):
+        return str(repo.root)
+    return str(repo)
+
+
+def render_board(states: dict[str, SideState], issues, backlog_items=None,
+                 now: datetime | None = None) -> str:
     """Render the STATUS view. Same one-line-per-side shape as the seeded
     STATUS.md, so the output is a drop-in replacement for the Drive board
     — plus an A13 alarm section computed from commit-time liveness (the
@@ -27,7 +39,12 @@ def render_board(states: dict[str, SideState], issues, now: datetime | None = No
     Questions-first (John's fix order, Nov 9 2026): owed questions are
     the HEAD of the queue, so the open-questions section renders ABOVE
     the per-side task lines — the board shows what is owed before what
-    is being worked on."""
+    is being worked on — and each side's line carries its owed
+    questions AHEAD of its current task (`owed:` before `current:`).
+    The unified queue section ("## Queue (questions first)") shows the
+    one global queue with the priority column (`prio P1` / `prio —`);
+    the flags section is always present ("- none" when clear) so the
+    all-clear is explicit, not the absence of a section."""
     now = now or datetime.now(timezone.utc)
     lines = [
         "# STATUS — Muse Bridge (rendered by muse-planning from state/*.md + issues.json)",
@@ -45,13 +62,27 @@ def render_board(states: dict[str, SideState], issues, now: datetime | None = No
         )
     lines.append("")
     for side in SIDES:
-        lines.append(states[side].board_line())
+        lines.append(states[side].board_line(owed=open_questions_for(issues, side)))
+    lines.append("")
+    lines.append("## Queue (questions first)")
+    queue = ordered_queue_all(states, issues, backlog_items)
+    if queue:
+        lines.append(format_queue(queue, show_side=True))
+    else:
+        lines.append("- (empty)")
+    lines.append("")
+    lines.append("## Questions-first flags (F6: answer before any fold/task)")
+    flags = find_violations(states, issues)
+    if not flags:
+        lines.append("- none")
+    for f in flags:
+        lines.append(f"- {format_flag(f)}")
     return "\n".join(lines) + "\n"
 
 
-def render_board_with_alarm(repo: Repo, states, issues, now=None) -> str:
-    board = render_board(states, issues, now)
-    rows = alarm(str(repo.root), states, issues, now)
+def render_board_with_alarm(repo, states, issues, backlog_items=None, now=None) -> str:
+    board = render_board(states, issues, backlog_items, now=now)
+    rows = alarm(_repo_root(repo), states, issues, now)
     lines = [board.rstrip("\n"), "", "## A13 alarm (commit-time liveness)"]
     for r in rows:
         stale = "STALE" if r["stale"] else "ok"
@@ -62,17 +93,7 @@ def render_board_with_alarm(repo: Repo, states, issues, now=None) -> str:
         lines.append(
             f"- {r['side']}: {stale} (last state commit {mins} ago) — {q}"
             + (f" — claim {r['claim']}" if r["claim"] else "")
-        )
-    flags = questions_first_flags(states, issues)
-    lines.append("")
-    lines.append("## Questions-first flags (output posted while a question was owed)")
-    if not flags:
-        lines.append("- none")
-    for f in flags:
-        lines.append(
-            f"- FLAG {f['side']}: posted {f['last_output']!r} "
-            f"({f['last_output_time']}) while question #{f['question']} "
-            f"{f['question_title']!r} was owed (asked {f['question_created_at']})"
+            + (f" — {r['questions_first_flag']}" if r["questions_first_flag"] else "")
         )
     return "\n".join(lines) + "\n"
 

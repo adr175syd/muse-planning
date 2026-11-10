@@ -97,7 +97,10 @@ class TestRender(unittest.TestCase):
                         created_at=datetime(2026, 11, 10, 2, 34, 38,
                                             tzinfo=timezone.utc))]
         out = render_board_with_alarm(self.root, self.states, issues)
-        self.assertIn("FLAG cc", out)
+        # The flag's canonical text names the rule + side (reconciled:
+        # "FLAG questions-first: cc ..."); the board also names the
+        # question and the posted output as evidence.
+        self.assertIn("FLAG questions-first: cc", out)
         self.assertIn("#12", out)
         self.assertIn("packet 506", out)
 

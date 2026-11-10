@@ -8,6 +8,10 @@ Runs fully offline in a temp dir (a copy of the seeded repo root):
   (d) the assigner rotates across sides and never double-assigns (WIP 1)
   (e) ledger numbers are assigned serially at merge with no duplicates
   (f) liveness reads commit times
+  (g) questions-first enforcement — the mining-data incident replay
+      (fold claim refused, question heads the queue, bypass fold flagged)
+  (h) priority column — a P1 item heads the pool and is not buried by
+      new work, until explicitly deprioritized
 
 Usage: python3 demo.py
 """
@@ -24,11 +28,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from muse_planning.assign import assign  # noqa: E402
 from muse_planning.board import (migrate_status_to_state,  # noqa: E402
                                  render_board_with_alarm, write_state)
+from muse_planning.flags import find_violations, format_flag  # noqa: E402
 from muse_planning.gate import (answer_question, ask_question,  # noqa: E402
                                 claim, release)
 from muse_planning.ledger import merge_file  # noqa: E402
 from muse_planning.liveness import alarm  # noqa: E402
 from muse_planning.model import SideState, parse_backlog  # noqa: E402
+from muse_planning.queue import (format_queue, head_of_queue,  # noqa: E402
+                                 ordered_queue_all)
 from muse_planning.store import (Refusal, Repo, StaleBaseError,  # noqa: E402
                                  f1_write, sha256_hex)
 
@@ -142,6 +149,69 @@ def main():
               f"last_commit={row['last_commit']} "
               f"stale_minutes={row['stale_minutes']} "
               f"oldest_open_question={row['oldest_open_question']}")
+
+    # (g) Questions-first enforcement — the mining-data incident replay.
+    section("(g) Questions-first enforcement (F6) — mining-data incident replay")
+    q_at = datetime(2026, 11, 10, 2, 37, tzinfo=timezone.utc)
+    fold_at = datetime(2026, 11, 10, 3, 0, tzinfo=timezone.utc)
+    issues = []
+    q = ask_question(issues, "mining-data question", "", "cc", "author 893", at=q_at)
+    print(f"asked question #{q.number} -> cc at {q_at.isoformat()} "
+          f"(author 893 §12, 21:37 ET Nov 9)")
+    head = head_of_queue("cc", issues, states["cc"], items)
+    print(f"queue head for cc: [{head.kind}] {head.ref} — {head.title!r} "
+          f"(question heads the queue, ahead of folds/tasks)")
+    try:
+        claim(repo, "cc", "fold 506", "fold", None, issues, states["cc"], at=fold_at)
+        print("ERROR: fold claim was granted while the question was owed")
+    except Refusal as e:
+        print(f"REFUSED (expected): {e}")
+    # The bypass: a fold claim started after the question, posted
+    # without going through the claim gate (the actual incident shape).
+    states["cc"].claim = "fold 506"
+    states["cc"].claim_kind = "fold"
+    states["cc"].claim_started = fold_at
+    states["cc"].current = "fold 506"
+    states["cc"].started = fold_at
+    states["cc"].updated = fold_at
+    for v in find_violations(states, issues):
+        print(f"FLAGGED (expected): {format_flag(v)}")
+    board = render_board_with_alarm(repo, states, issues, items)
+    print("board carries the flag:")
+    for ln in board.splitlines():
+        if "FLAG questions-first" in ln or ln.startswith("## Questions-first"):
+            print(f"  {ln}")
+    # Answer the question: the flag clears and the fold claim is granted.
+    answer_question(issues, q.number)
+    print(f"answered question #{q.number}")
+    print(f"flags now: {find_violations(states, issues)}")
+    states["cc"].claim = ""
+    states["cc"].claim_kind = ""
+    states["cc"].claim_started = None
+    states["cc"].current = ""
+    st = claim(repo, "cc", "fold 506", "fold", None, issues, states["cc"], at=fold_at)
+    print(f"GRANTED (expected): cc claimed {st.claim!r} once the question closed")
+    release(repo, "cc", st)
+
+    # (h) Priority column (JJ's order, Nov 10 2026).
+    section("(h) Priority column — P1 heads the pool, is not buried, deprioritizes")
+    items = parse_backlog((root / "BACKLOG.md").read_text(encoding="utf-8"))
+    for s in states.values():
+        s.claim = ""
+    swing = next(i for i in items if i.title.startswith("Swing Clock"))
+    print("pool before priority (pull order):")
+    print(format_queue(ordered_queue_all(states, [], items), show_side=True))
+    swing.priority = "P1"
+    print(f"\n{swing.title!r} set to P1:")
+    print(format_queue(ordered_queue_all(states, [], items), show_side=True))
+    from muse_planning.model import BacklogItem
+    items.append(BacklogItem(title="brand new ordinary task", status="ready",
+                             spec="s", kill="k"))
+    print("\na brand new ordinary task arrives — the P1 item still heads the pool:")
+    print(format_queue(ordered_queue_all(states, [], items), show_side=True))
+    swing.priority = ""
+    print(f"\n{swing.title!r} deprioritized — back to pull order:")
+    print(format_queue(ordered_queue_all(states, [], items), show_side=True))
 
     print(f"\nDemo complete. Temp repo kept at {root} for inspection.")
     return 0

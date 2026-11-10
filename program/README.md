@@ -14,12 +14,16 @@ program/
     store.py              paths, hashing, atomic writes, F1 checked writes
     gate.py               answer-first (F6), WIP 1, A7, A18, CONTROL gates
     assign.py             assigner: rotate the load, least-recently-assigned
+    queue.py              the work queue, questions first (per-side + global)
+    flags.py              questions-first flag detector (timestamp-ordered)
     ledger.py             merge-time serial ledger numbering
     liveness.py           git-commit-time liveness + A13 alarm
     board.py              render the board; migrate STATUS.md -> state files
     cli.py                `python3 -m muse_planning <cmd>`
   tests/                  unittest suite, all offline
   demo.py                 end-to-end demo against the seeded fixtures
+  questions_first_demo_refusal.py   demo 1: fold refused, answer assigned first
+  questions_first_demo_flag.py      demo 2: the cc 506/507/508 flag, board + poll
   .github/workflows/board.yml   (place at repo root) rebuild board on push
 ```
 
@@ -39,17 +43,30 @@ program/
    question(s). `ask` files a question as an Issue the same cycle it
    is asked; the program assigns its number serially and the packet
    cites it. Questions-first (John's fix order, Nov 9 2026 — the data
-   question waited ~45 minutes through three cc folds with no flag):
+   question waited ~45 minutes through three cc folds with no flag),
+   reconciled from cc PR #1, Harbor PR #2 and author PR #3 into this
+   one implementation (Nov 10 2026):
    (1) an owed question is the HEAD of the queue — `assign` returns
    the answer to the oldest answerable open question before any
-   backlog item; (2) the claim rule refuses a new fold/task claim
-   while a question is owed (F6, per-side); (3) the board renders
-   owed questions ahead of the per-side task lines; (4) a flag fires
-   when a side posts output after its question was asked while the
-   question is still open (`flags` command, `poll` digest, and the
-   board's Questions-first flags section) — the flag names the
-   evidence; the packet layer adjudicates whether the output was a
-   fold.
+   backlog item, and `queue` shows it first;
+   (2) the claim rule refuses a new fold/task claim while a question
+   is owed (F6, per-side) — claim kinds are answer/fold/task/work/
+   research, and an answer claim must cite its question as
+   `answer:<n>`;
+   (3) the board renders owed questions ahead of the per-side task
+   lines, each side line carries `owed:` ahead of `current:`, and the
+   unified "## Queue (questions first)" section shows the one global
+   queue with the priority column;
+   (4) a flag fires when a side's non-answer work demonstrably started
+   or its output posted AFTER its oldest owed question was asked
+   (timestamp-ordered: in-flight work started before the question is
+   never flagged; a side holding the answer claim is not flagged).
+   The flag names the evidence (held claim, bypass fold in `current`,
+   or latest named output time) and the packet layer adjudicates
+   whether the output was a fold. `flags` prints JSON rows and exits
+   **2** while any flag stands, 0 when clear; `poll` wakes on ANY
+   side's flag (the violating side is the least likely to self-correct,
+   so the other sides must wake and nudge).
 4. **Merge-time ledger numbering.** Writers propose text; `merge`
    assigns serial numbers from `ledger.json` at merge. Handwritten
    numbers are never trusted (duplicates are reported, each line still
@@ -77,7 +94,24 @@ program/
 12. **Watcher polling contract.** Each side's existing watcher calls
     `poll --side <side>` every 20–60s (no second watcher). It prints
     one JSON digest line; CONTROL PAUSED/WIND-DOWN prints
-    `{"wake": false}` and exits 0 (silent).
+    `{"wake": false}` and exits 0 (silent). The digest wakes on a new
+    question for the polling side, any stale side, or ANY side's
+    questions-first flag (see rule 3).
+13. **Priority column (JJ's order, Nov 10 2026).** Every backlog item
+    carries a priority field (`priority: P1|P2|P3` segment in
+    BACKLOG.md; High/Med/Low accepted as aliases), shown as its own
+    column (`prio P1` / `prio —`) on the board's queue section and in
+    `queue` output. Ordering: owed questions first (F6, unchanged),
+    then priority items (P1, then P2, then P3), then the rest; the
+    assigner picks the highest-priority movable item first. A priority
+    item stays at the top of its section until it is done or
+    explicitly deprioritized (`priority --item "<title>" --level none`)
+    — a newly arrived ordinary item never buries it, because the order
+    is a pure function of (priority rank, pull order), not arrival
+    time. Priority reorders the pool only: it never jumps ahead of an
+    owed question (questions carry no priority — F6 already puts them
+    first) or ahead of in-flight work (a held claim). Default levels
+    are P1/P2/P3; the team pins the final levels by packet.
 
 ## Run it
 
@@ -94,6 +128,10 @@ python3 -m muse_planning --root .. ask --assignee cc --title "TUNE-2 vote?" --as
 python3 -m muse_planning --root .. answer --number 1
 python3 -m muse_planning --root .. alarm
 python3 -m muse_planning --root .. flags
+python3 -m muse_planning --root .. queue
+python3 -m muse_planning --root .. queue --side cc
+python3 -m muse_planning --root .. priority --item "Swing Clock odds-reuse design" --level P1
+python3 -m muse_planning --root .. priority --item "Swing Clock odds-reuse design" --level none
 python3 -m muse_planning --root .. merge --proposals proposals.jsonl
 ```
 
@@ -101,7 +139,9 @@ python3 -m muse_planning --root .. merge --proposals proposals.jsonl
 
 ```sh
 python3 -m unittest discover -s tests -v   # all offline, no network
-python3 demo.py                             # end-to-end demo on seeded fixtures
+python3 demo.py                             # end-to-end demo on seeded fixtures (§(a)–(h))
+python3 questions_first_demo_refusal.py     # demo 1: fold refused, answer assigned first
+python3 questions_first_demo_flag.py        # demo 2: the cc 506/507/508 flag, board + poll
 ```
 
 ## Ambiguities resolved (simplest reading that satisfies the rule)

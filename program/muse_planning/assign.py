@@ -83,15 +83,17 @@ def free_sides(states: dict[str, SideState], issues: list[Issue]) -> list[str]:
 
 
 def pick_head_item(items: list[BacklogItem]) -> BacklogItem | None:
-    """Head ready item, in pull order. Skips needs-spec / done / excluded
-    and watch-only items (A7: never a sole item)."""
-    for it in items:
-        if not it.movable:
-            continue
-        if it.watch_only:
-            continue
-        return it
-    return None
+    """Head ready item. Skips needs-spec / done / excluded and
+    watch-only items (A7: never a sole item). Among the movable items
+    the HIGHEST PRIORITY goes first (P1, then P2, then P3), then pull
+    order within a rank — the priority column (JJ's order, Nov 10
+    2026): a priority item is the next assignment ahead of ordinary
+    backlog work, and a newly arrived ordinary item never buries it."""
+    ready = [it for it in items if it.movable and not it.watch_only]
+    if not ready:
+        return None
+    ready.sort(key=lambda it: it.priority_rank)
+    return ready[0]
 
 
 def assign(states: dict[str, SideState], items: list[BacklogItem],

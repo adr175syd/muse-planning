@@ -14,38 +14,22 @@ Questions-first flags (John's fix order, Nov 9 2026): the same alarm
 idea, for the case F6 alone cannot stop — a side that posts output
 while a question is owed to it. The program cannot stop a packet post
 (folds go through Drive, not through `claim`), so the board/watcher
-must CATCH it: a side whose latest named output postdates its oldest
-open question is flagged, with the output named as the evidence. The
-flag is a detector, like A13's STALE — the packet layer adjudicates
-whether the output was a fold or something else (e.g. an answer whose
-Issue has not been closed yet).
+must CATCH it. The detector lives in flags.py (reconciled from cc PR
+#1, Harbor PR #2, author PR #3); alarm() carries its rows here so the
+board and the watcher digest see staleness and flags side by side.
+The flag is a detector, like A13's STALE — the packet layer
+adjudicates whether the output was a fold or something else (e.g. an
+answer whose Issue has not been closed yet).
 """
 from __future__ import annotations
 
-import re
 import subprocess
 from datetime import datetime, timezone
 
+from .flags import find_violations, format_flag
 from .model import STALE_MINUTES, Issue, SideState, parse_time
 
 GIT_TIMEOUT_S = 10
-
-# A packet/fold post carries its time in the side's last_output, e.g.
-# "packet 506 2026-11-10T02:45:54Z" (seeded STATUS.md format).
-ISO_TS_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
-
-
-def last_output_time(state: SideState) -> datetime | None:
-    """Latest ISO timestamp named in the side's last_output / current /
-    progress text (the post time a packet/fold carries). None when no
-    field names a time — never guessed."""
-    best: datetime | None = None
-    for text in (state.last_output, state.current, state.progress):
-        for m in ISO_TS_RE.finditer(text or ""):
-            t = parse_time(m.group(0))
-            if t and (best is None or t > best):
-                best = t
-    return best
 
 
 def oldest_open_question_for(issues: list[Issue], side: str) -> Issue | None:
@@ -96,49 +80,18 @@ def oldest_open_question(issues: list[Issue], side: str) -> Issue | None:
     return oldest_open_question_for(issues, side)
 
 
-def questions_first_flags(states: dict[str, SideState],
-                          issues: list[Issue]) -> list[dict]:
-    """Flag every side that posted output AFTER its oldest open question
-    was asked, while the question is still open — the fold-while-owed
-    case (cc 506/507/508 vs 893 §12, Nov 9 2026: the data question
-    waited ~45 minutes through three folds with no flag firing, because
-    no such flag existed). One row per flagged side:
-
-      side, question (number), question_title, question_created_at,
-      last_output (the posted output, verbatim), last_output_time.
-
-    Never flags on no evidence: a question with no created_at cannot be
-    ordered, and a side with no named output time is not flagged. A side
-    currently holding the answer claim for that question is not flagged
-    — it is answering. The flag names the evidence; the packet layer
-    adjudicates whether the output was a fold."""
-    rows: list[dict] = []
-    for side in ("author", "harbor", "cc"):
-        st = states[side]
-        q = oldest_open_question_for(issues, side)
-        if q is None or q.created_at is None:
-            continue
-        if st.claim_kind == "answer" and st.claim == f"answer:{q.number}":
-            continue
-        t = last_output_time(st)
-        if t is None or t <= q.created_at:
-            continue
-        rows.append({
-            "side": side,
-            "question": q.number,
-            "question_title": q.title,
-            "question_created_at": q.created_at.isoformat().replace("+00:00", "Z"),
-            "last_output": st.last_output,
-            "last_output_time": t.isoformat().replace("+00:00", "Z"),
-        })
-    return rows
-
-
 def alarm(repo_root: str, states: dict[str, SideState],
           issues: list[Issue], now: datetime | None = None) -> list[dict]:
     """A13 alarm rows, one per side: staleness (minutes since last
-    state-file commit) next to the oldest open assigned question."""
+    state-file commit) next to the oldest open assigned question, plus
+    the side's questions-first flag (if any).
+
+    Flag fields (one detector, two names, so no side's watcher has to
+    guess): `questions_first_flag` is the formatted flag text (or None
+    when clear); `question_violation` is the same fact as a boolean and
+    `question_violation_detail` its text."""
     now = now or datetime.now(timezone.utc)
+    flags = {f["side"]: f for f in find_violations(states, issues)}
     rows = []
     for side in ("author", "harbor", "cc"):
         rel = f"state/{side}.md"
@@ -146,6 +99,7 @@ def alarm(repo_root: str, states: dict[str, SideState],
         mins = staleness_minutes(last, now)
         q = oldest_open_question(issues, side)
         pending = q is not None or bool(states[side].claim)
+        flag = flags.get(side)
         rows.append({
             "side": side,
             "last_commit": last.isoformat() if last else None,
@@ -154,5 +108,8 @@ def alarm(repo_root: str, states: dict[str, SideState],
             "oldest_open_question": q.number if q else None,
             "oldest_open_question_title": q.title if q else "",
             "claim": states[side].claim,
+            "questions_first_flag": format_flag(flag) if flag else None,
+            "question_violation": bool(flag),
+            "question_violation_detail": flag["detail"] if flag else "",
         })
     return rows

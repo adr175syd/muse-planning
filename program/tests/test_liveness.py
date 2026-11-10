@@ -12,7 +12,6 @@ from helpers import make_repo  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from muse_planning.liveness import (alarm, is_stale, last_commit_time,  # noqa: E402
-                                    last_output_time, questions_first_flags,
                                     staleness_minutes)
 from muse_planning.model import Issue, SideState  # noqa: E402
 
@@ -103,81 +102,6 @@ class LivenessCase(unittest.TestCase):
         by_side = {r["side"]: r for r in rows}
         self.assertTrue(by_side["cc"]["stale"])
         self.assertIsNone(by_side["cc"]["stale_minutes"])
-
-
-class QuestionsFirstFlagsCase(unittest.TestCase):
-    """Questions-first flags (req 4): output posted while a question was
-    owed. The cc 506/507/508 case: the data question (893 §12) waited
-    ~45 minutes through three folds with no flag firing."""
-
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.root = Path(self.tmp.name)
-        self.states = {s: SideState(side=s) for s in ("author", "harbor", "cc")}
-        # cc's last output names the fold + its post time (seeded format).
-        self.states["cc"].last_output = "packet 506 2026-11-10T02:45:54Z"
-        self.asked = datetime(2026, 11, 10, 2, 34, 38, tzinfo=timezone.utc)
-
-    def tearDown(self):
-        self.tmp.cleanup()
-
-    def _question(self, number=12, assignee="cc", created_at=None):
-        return Issue(number=number, title="What data does the mining need?",
-                     assignee=assignee, asked_in="author 893",
-                     created_at=created_at if created_at is not None else self.asked)
-
-    def test_flag_fires_when_output_postdates_open_question(self):
-        rows = questions_first_flags(self.states, [self._question()])
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["side"], "cc")
-        self.assertEqual(rows[0]["question"], 12)
-        self.assertEqual(rows[0]["last_output"], "packet 506 2026-11-10T02:45:54Z")
-        self.assertEqual(rows[0]["last_output_time"], "2026-11-10T02:45:54Z")
-        self.assertEqual(rows[0]["question_created_at"], "2026-11-10T02:34:38Z")
-
-    def test_no_flag_when_output_predates_question(self):
-        self.states["cc"].last_output = "packet 505 2026-11-10T02:31:53Z"
-        rows = questions_first_flags(self.states, [self._question()])
-        self.assertEqual(rows, [])
-
-    def test_no_flag_when_no_open_question(self):
-        q = self._question()
-        q.state = "closed"
-        rows = questions_first_flags(self.states, [q])
-        self.assertEqual(rows, [])
-
-    def test_no_flag_when_side_is_answering(self):
-        self.states["cc"].claim = "answer:12"
-        self.states["cc"].claim_kind = "answer"
-        rows = questions_first_flags(self.states, [self._question()])
-        self.assertEqual(rows, [])
-
-    def test_no_flag_without_ask_time(self):
-        q = self._question()
-        q.created_at = None
-        rows = questions_first_flags(self.states, [q])
-        self.assertEqual(rows, [])
-
-    def test_no_flag_without_named_output_time(self):
-        self.states["cc"].last_output = "packet 506 (no timestamp recorded)"
-        rows = questions_first_flags(self.states, [self._question()])
-        self.assertEqual(rows, [])
-
-    def test_oldest_owed_question_is_the_flagged_one(self):
-        newer = Issue(number=13, title="volume question?", assignee="cc",
-                      asked_in="author 895",
-                      created_at=datetime(2026, 11, 10, 3, 0, 0, tzinfo=timezone.utc))
-        rows = questions_first_flags(self.states, [newer, self._question()])
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["question"], 12)
-
-    def test_last_output_time_takes_latest_named_time(self):
-        st = SideState(side="cc",
-                       last_output="packet 506 2026-11-10T02:45:54Z",
-                       current="fold 853 — started 2026-11-10T02:59:35Z")
-        self.assertEqual(last_output_time(st),
-                         datetime(2026, 11, 10, 2, 59, 35, tzinfo=timezone.utc))
-        self.assertIsNone(last_output_time(SideState(side="cc")))
 
 
 if __name__ == "__main__":

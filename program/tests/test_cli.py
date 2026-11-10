@@ -136,7 +136,9 @@ class CliCase(unittest.TestCase):
                                     "packet 506 2026-11-09T21:45:54Z")
         (self.root / "state" / "cc.md").write_text(cc_state, encoding="utf-8")
         code, out, _ = run("flags", root=self.root)
-        self.assertEqual(code, 0)
+        # `flags` exits 2 while a flag stands (reconciled decision:
+        # the refusal/blocked code, not Harbor's 1 — see flags.py).
+        self.assertEqual(code, 2)
         flags = json.loads(out)
         self.assertEqual(len(flags), 1)
         self.assertEqual(flags[0]["side"], "cc")
@@ -168,7 +170,7 @@ class CliCase(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertLess(out.index("## Owed questions"),
                         out.index("- author |"))
-        self.assertIn("FLAG cc", out)
+        self.assertIn("FLAG questions-first: cc", out)
 
 
 if __name__ == "__main__":

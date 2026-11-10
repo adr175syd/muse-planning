@@ -6,7 +6,7 @@ REFUSED naming the blocking question; the assigner returns the answer
 first; only after the question is answered is the fold claim granted.
 
 Run: python3 questions_first_demo_refusal.py
-Output is also saved to questions_first_fix_demo_refusal.txt.
+(Reconciled: fold claims use --kind fold, a real claim kind now.)
 """
 import json
 import subprocess
@@ -46,8 +46,8 @@ def main():
 
     section("2. cc tries to claim a fold while the question is owed -> REFUSED")
     code, out, err = cli(root, "claim", "--side", "cc",
-                         "--item", "fold of author 886", "--kind", "work")
-    print("$ claim --side cc --item 'fold of author 886' --kind work")
+                         "--item", "fold of author 886", "--kind", "fold")
+    print("$ claim --side cc --item 'fold of author 886' --kind fold")
     print(f"exit {code}: {err or out}")
     assert code == 2 and "#1" in err and "What data does the mining need?" in err
 
@@ -73,8 +73,8 @@ def main():
     print("$ release --side cc   (release the answer claim)")
     print(f"exit {code}: {out or err}")
     code, out, err = cli(root, "claim", "--side", "cc",
-                         "--item", "fold of author 886", "--kind", "work")
-    print("$ claim --side cc --item 'fold of author 886' --kind work")
+                         "--item", "fold of author 886", "--kind", "fold")
+    print("$ claim --side cc --item 'fold of author 886' --kind fold")
     print(f"exit {code}: {out or err}")
     assert code == 0 and "CLAIMED cc" in out
 

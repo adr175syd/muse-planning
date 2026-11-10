@@ -66,7 +66,9 @@ def main():
     print(f"exit {code}:")
     print(out or err)
     rows = json.loads(out)
-    assert code == 0 and len(rows) == 1 and rows[0]["side"] == "cc"
+    # `flags` exits 2 while a flag stands (reconciled decision: the
+    # refusal/blocked code, not 0 and not Harbor's 1).
+    assert code == 2 and len(rows) == 1 and rows[0]["side"] == "cc"
     assert rows[0]["question"] == 12
     assert rows[0]["last_output_time"] == "2026-11-10T03:14:40Z"
 
@@ -76,7 +78,7 @@ def main():
     print(f"exit {code}:")
     print(out)
     assert code == 0
-    assert "FLAG cc" in out and "#12" in out
+    assert "FLAG questions-first: cc" in out and "#12" in out
     assert out.index("## Owed questions") < out.index("- author |")
 
     section("5. `poll`: the watcher digest WAKES on the flag (and on nothing else)")

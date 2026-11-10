@@ -1,5 +1,162 @@
-.......................................................
+test_busy_assignee_answer_waits_other_sides_still_work (test_assign.AssignCase.test_busy_assignee_answer_waits_other_sides_still_work)
+A question whose assignee holds a claim (WIP 1) waits for that ... ok
+test_needs_spec_head_is_skipped (test_assign.AssignCase.test_needs_spec_head_is_skipped) ... ok
+test_never_double_assigns_busy_side (test_assign.AssignCase.test_never_double_assigns_busy_side)
+(d) WIP 1: a busy side is never assigned twice. ... ok
+test_no_free_side_refuses (test_assign.AssignCase.test_no_free_side_refuses) ... ok
+test_oldest_owed_question_first (test_assign.AssignCase.test_oldest_owed_question_first)
+When two sides owe answers, the question that waited longest ... ok
+test_owed_question_is_head_of_queue (test_assign.AssignCase.test_owed_question_is_head_of_queue)
+Questions-first (req 1): a side with an open question is ... ok
+test_rotation_cycles_through_all_sides (test_assign.AssignCase.test_rotation_cycles_through_all_sides) ... ok
+test_rotation_goes_least_recently_assigned_first (test_assign.AssignCase.test_rotation_goes_least_recently_assigned_first)
+(d) The assigner rotates across sides. ... ok
+test_side_with_open_question_not_in_free_sides (test_assign.AssignCase.test_side_with_open_question_not_in_free_sides)
+free_sides still excludes a side with an open question (it ... ok
+test_watch_only_head_is_skipped_not_assigned (test_assign.AssignCase.test_watch_only_head_is_skipped_not_assigned) ... ok
+test_migrate_missing_side_raises (test_board.TestMigrateSeededBoard.test_migrate_missing_side_raises) ... ok
+test_migrate_real_status_md (test_board.TestMigrateSeededBoard.test_migrate_real_status_md)
+(a) The board renders from the seeded state files: migrate the ... ok
+test_owed_questions_render_ahead_of_task_lines (test_board.TestRender.test_owed_questions_render_ahead_of_task_lines)
+Questions-first (req 3): the owed-questions section renders ... ok
+test_render_flags_fold_while_question_owed (test_board.TestRender.test_render_flags_fold_while_question_owed)
+Questions-first (req 4): a side that posted output after its ... ok
+test_render_has_one_line_per_side (test_board.TestRender.test_render_has_one_line_per_side) ... ok
+test_render_lists_open_questions (test_board.TestRender.test_render_lists_open_questions) ... ok
+test_full_flow_on_seeded_files (test_cli.CliCase.test_full_flow_on_seeded_files) ... ok
+test_questions_first_end_to_end (test_cli.CliCase.test_questions_first_end_to_end)
+Questions-first (req 1 + req 4) through the CLI: an owed ... ok
+test_render_write_uses_f1 (test_cli.CliCase.test_render_write_uses_f1) ... ok
+test_missing_mode_raises (test_control.ControlCase.test_missing_mode_raises) ... ok
+test_parse_paused (test_control.ControlCase.test_parse_paused) ... ok
+test_parse_run (test_control.ControlCase.test_parse_run) ... ok
+test_parse_wind_down (test_control.ControlCase.test_parse_wind_down) ... ok
+test_real_control_file_parses_and_gates_consistently (test_control.ControlCase.test_real_control_file_parses_and_gates_consistently) ... ok
+test_own_line_write_aborts_on_stale_base (test_f1.F1Case.test_own_line_write_aborts_on_stale_base) ... ok
+test_own_line_write_refuses_unknown_side (test_f1.F1Case.test_own_line_write_refuses_unknown_side) ... ok
+test_own_line_write_touches_only_that_line (test_f1.F1Case.test_own_line_write_touches_only_that_line) ... ok
+test_stale_base_aborts_and_file_unchanged (test_f1.F1Case.test_stale_base_aborts_and_file_unchanged)
+(c) A stale-base write ABORTS (F1). ... ok
+test_write_with_fresh_base_succeeds (test_f1.F1Case.test_write_with_fresh_base_succeeds) ... ok
+test_alarm_row_carries_the_flag (test_flags.AlarmCarriesFlagCase.test_alarm_row_carries_the_flag) ... ok
+test_bypass_fold_posted_without_a_claim_is_flagged (test_flags.BypassLegCase.test_bypass_fold_posted_without_a_claim_is_flagged) ... ok
+test_bypass_state_that_predates_question_is_not_flagged (test_flags.BypassLegCase.test_bypass_state_that_predates_question_is_not_flagged) ... ok
+test_fold_queued_behind_the_answer_is_not_flagged (test_flags.BypassLegCase.test_fold_queued_behind_the_answer_is_not_flagged)
+Harbor's held markers: a fold explicitly queued behind the ... ok
+test_unorderable_question_is_not_flagged (test_flags.BypassLegCase.test_unorderable_question_is_not_flagged)
+A question with no created_at cannot establish order — no ... ok
+test_answer_claim_is_not_flagged (test_flags.HeldClaimLegCase.test_answer_claim_is_not_flagged) ... ok
+test_flag_names_oldest_question_owed_when_work_started (test_flags.HeldClaimLegCase.test_flag_names_oldest_question_owed_when_work_started) ... ok
+test_fold_claim_started_after_question_is_flagged (test_flags.HeldClaimLegCase.test_fold_claim_started_after_question_is_flagged) ... ok
+test_in_flight_fold_started_before_question_is_not_flagged (test_flags.HeldClaimLegCase.test_in_flight_fold_started_before_question_is_not_flagged)
+Work started BEFORE the question is in-flight: finish it, ... ok
+test_no_open_question_no_flag (test_flags.HeldClaimLegCase.test_no_open_question_no_flag) ... ok
+test_flag_fires_when_output_postdates_open_question (test_flags.LastOutputLegCase.test_flag_fires_when_output_postdates_open_question) ... ok
+test_last_output_time_takes_latest_named_time (test_flags.LastOutputLegCase.test_last_output_time_takes_latest_named_time) ... ok
+test_no_flag_when_no_open_question (test_flags.LastOutputLegCase.test_no_flag_when_no_open_question) ... ok
+test_no_flag_when_output_predates_question (test_flags.LastOutputLegCase.test_no_flag_when_output_predates_question) ... ok
+test_no_flag_when_side_is_answering (test_flags.LastOutputLegCase.test_no_flag_when_side_is_answering) ... ok
+test_no_flag_without_ask_time (test_flags.LastOutputLegCase.test_no_flag_without_ask_time) ... ok
+test_no_flag_without_named_output_time (test_flags.LastOutputLegCase.test_no_flag_without_named_output_time) ... ok
+test_oldest_owed_question_is_the_flagged_one (test_flags.LastOutputLegCase.test_oldest_owed_question_is_the_flagged_one) ... ok
+test_a18_refuses_needs_spec_and_verification (test_gate.GateCase.test_a18_refuses_needs_spec_and_verification) ... ok
+test_a7_refuses_watch_only_claim (test_gate.GateCase.test_a7_refuses_watch_only_claim) ... ok
+test_answer_first_grants_answer_claim_then_claim_after_close (test_gate.GateCase.test_answer_first_grants_answer_claim_then_claim_after_close)
+(b) ...and GRANTED once the question is closed. ... ok
+test_answer_first_refuses_fold_claim_while_question_owed (test_gate.GateCase.test_answer_first_refuses_fold_claim_while_question_owed)
+Questions-first (req 2): a FOLD claim is refused while a ... ok
+test_answer_first_refuses_new_claim_and_names_question (test_gate.GateCase.test_answer_first_refuses_new_claim_and_names_question)
+(b) A claim is REFUSED while an assigned question is open. ... ok
+test_claim_granted_when_clean (test_gate.GateCase.test_claim_granted_when_clean) ... ok
+test_control_paused_refuses_every_claim (test_gate.GateCase.test_control_paused_refuses_every_claim) ... ok
+test_progress_refreshes_heartbeat (test_gate.GateCase.test_progress_refreshes_heartbeat) ... ok
+test_wip1_refuses_second_claim (test_gate.GateCase.test_wip1_refuses_second_claim) ... ok
+test_duplicate_handwritten_numbers_warn (test_ledger.LedgerCase.test_duplicate_handwritten_numbers_warn) ... ok
+test_handwritten_numbers_are_ignored (test_ledger.LedgerCase.test_handwritten_numbers_are_ignored) ... ok
+test_head_advances_and_persists (test_ledger.LedgerCase.test_head_advances_and_persists) ... ok
+test_no_duplicates_across_merges (test_ledger.LedgerCase.test_no_duplicates_across_merges)
+(e) No duplicates, ever, across successive merges. ... ok
+test_serial_numbers_from_head (test_ledger.LedgerCase.test_serial_numbers_from_head)
+(e) Ledger numbers are assigned serially at merge. ... ok
+test_alarm_rows_pair_staleness_with_oldest_question (test_liveness.LivenessCase.test_alarm_rows_pair_staleness_with_oldest_question) ... ok
+test_is_stale_threshold_60m_with_pending (test_liveness.LivenessCase.test_is_stale_threshold_60m_with_pending) ... ok
+test_last_commit_time_reads_git_not_mtime (test_liveness.LivenessCase.test_last_commit_time_reads_git_not_mtime)
+(f) Liveness reads commit times. ... ok
+test_staleness_minutes_from_commit_time (test_liveness.LivenessCase.test_staleness_minutes_from_commit_time) ... ok
+test_assign_picks_the_priority_item_first (test_priority.AssignerCase.test_assign_picks_the_priority_item_first) ... ok
+test_assign_still_returns_the_answer_before_priority (test_priority.AssignerCase.test_assign_still_returns_the_answer_before_priority) ... ok
+test_pick_head_item_skips_watch_only_even_when_priority (test_priority.AssignerCase.test_pick_head_item_skips_watch_only_even_when_priority) ... ok
+test_board_priority_item_stays_at_top_of_its_section (test_priority.BoardCase.test_board_priority_item_stays_at_top_of_its_section) ... ok
+test_board_queue_section_shows_priority_column (test_priority.BoardCase.test_board_queue_section_shows_priority_column) ... ok
+test_priority_alias_med_accepted (test_priority.CliCase.test_priority_alias_med_accepted) ... ok
+test_priority_no_match_refused (test_priority.CliCase.test_priority_no_match_refused) ... ok
+test_priority_none_deprioritizes (test_priority.CliCase.test_priority_none_deprioritizes) ... ok
+test_priority_sets_the_level (test_priority.CliCase.test_priority_sets_the_level) ... ok
+test_priority_unknown_level_refused (test_priority.CliCase.test_priority_unknown_level_refused) ... ok
+test_format_queue_carries_the_priority_column (test_priority.OrderingCase.test_format_queue_carries_the_priority_column) ... ok
+test_owed_question_still_heads_ahead_of_priority (test_priority.OrderingCase.test_owed_question_still_heads_ahead_of_priority)
+F6 outranks priority: an owed question is the head even when ... ok
+test_per_side_queue_priority_first_then_pull_order (test_priority.OrderingCase.test_per_side_queue_priority_first_then_pull_order) ... ok
+test_unified_queue_priority_first_then_pull_order (test_priority.OrderingCase.test_unified_queue_priority_first_then_pull_order) ... ok
+test_aliases_normalized (test_priority.ParseCase.test_aliases_normalized) ... ok
+test_priority_rank_orders_p1_first (test_priority.ParseCase.test_priority_rank_orders_p1_first) ... ok
+test_priority_segment_parsed (test_priority.ParseCase.test_priority_segment_parsed) ... ok
+test_unknown_label_is_unprioritized_not_an_error (test_priority.ParseCase.test_unknown_label_is_unprioritized_not_an_error) ... ok
+test_deprioritization_drops_the_item_back_to_pull_order (test_priority.StickinessCase.test_deprioritization_drops_the_item_back_to_pull_order) ... ok
+test_done_priority_item_leaves_the_queue (test_priority.StickinessCase.test_done_priority_item_leaves_the_queue) ... ok
+test_new_ordinary_item_does_not_bury_a_priority_item (test_priority.StickinessCase.test_new_ordinary_item_does_not_bury_a_priority_item)
+A priority item stays at the top of its section: appending a ... ok
+test_new_priority_item_does_not_bury_a_higher_priority_item (test_priority.StickinessCase.test_new_priority_item_does_not_bury_a_higher_priority_item) ... ok
+test_clean_board_shows_no_flags (test_questions_first_cc.BoardCase.test_clean_board_shows_no_flags) ... ok
+test_owed_questions_render_ahead_of_task_lines (test_questions_first_cc.BoardCase.test_owed_questions_render_ahead_of_task_lines)
+(3) The board renders owed questions ahead of tasks: the Open ... ok
+test_cli_flags_fire_on_bypass_and_poll_wakes (test_questions_first_cc.CliCase.test_cli_flags_fire_on_bypass_and_poll_wakes)
+End-to-end (4) through the CLI: flag fires, poll wakes. ... ok
+test_cli_fold_claim_refused_and_queue_shows_question_first (test_questions_first_cc.CliCase.test_cli_fold_claim_refused_and_queue_shows_question_first)
+End-to-end (2) + (1) through the CLI. ... ok
+test_alarm_row_carries_the_flag (test_questions_first_cc.FlagsCase.test_alarm_row_carries_the_flag) ... ok
+test_answer_claim_is_not_flagged (test_questions_first_cc.FlagsCase.test_answer_claim_is_not_flagged) ... ok
+test_bypass_fold_posted_without_a_claim_is_flagged (test_questions_first_cc.FlagsCase.test_bypass_fold_posted_without_a_claim_is_flagged)
+A fold posted without ever claiming it in the program (the ... ok
+test_bypass_state_that_predates_question_is_not_flagged (test_questions_first_cc.FlagsCase.test_bypass_state_that_predates_question_is_not_flagged) ... ok
+test_flag_names_oldest_question_owed_when_work_started (test_questions_first_cc.FlagsCase.test_flag_names_oldest_question_owed_when_work_started) ... ok
+test_fold_started_after_question_is_flagged (test_questions_first_cc.FlagsCase.test_fold_started_after_question_is_flagged)
+(4) The incident, as the watcher sees it: a fold claim started ... ok
+test_in_flight_fold_started_before_question_is_not_flagged (test_questions_first_cc.FlagsCase.test_in_flight_fold_started_before_question_is_not_flagged)
+Work started BEFORE the question is in-flight: finish it, then ... ok
+test_no_open_question_no_flag (test_questions_first_cc.FlagsCase.test_no_open_question_no_flag) ... ok
+test_unorderable_question_is_not_flagged (test_questions_first_cc.FlagsCase.test_unorderable_question_is_not_flagged)
+A question with no created_at cannot establish order — no ... ok
+test_answer_claim_still_granted_while_question_open (test_questions_first_cc.FoldClaimCase.test_answer_claim_still_granted_while_question_open) ... ok
+test_fold_claim_granted_once_question_closed (test_questions_first_cc.FoldClaimCase.test_fold_claim_granted_once_question_closed) ... ok
+test_fold_claim_refused_while_question_owed (test_questions_first_cc.FoldClaimCase.test_fold_claim_refused_while_question_owed)
+(2) A fold claim is REFUSED while a question is owed — the ... ok
+test_unknown_claim_kind_refused (test_questions_first_cc.FoldClaimCase.test_unknown_claim_kind_refused) ... ok
+test_work_claim_refused_while_question_owed (test_questions_first_cc.FoldClaimCase.test_work_claim_refused_while_question_owed) ... ok
+test_empty_queue (test_questions_first_cc.QueueCase.test_empty_queue) ... ok
+test_no_question_head_is_current_claim_then_backlog (test_questions_first_cc.QueueCase.test_no_question_head_is_current_claim_then_backlog) ... ok
+test_oldest_owed_question_is_head (test_questions_first_cc.QueueCase.test_oldest_owed_question_is_head) ... ok
+test_owed_question_heads_queue_ahead_of_fold_and_tasks (test_questions_first_cc.QueueCase.test_owed_question_heads_queue_ahead_of_fold_and_tasks)
+(1) An owed question goes to the HEAD of the queue. ... ok
+test_board_renders_owed_question_ahead_of_task_lines (test_questions_first_harbor.QuestionsFirstCase.test_board_renders_owed_question_ahead_of_task_lines) ... ok
+test_board_without_questions_still_renders (test_questions_first_harbor.QuestionsFirstCase.test_board_without_questions_still_renders) ... ok
+test_flag_fires_when_fold_claimed_while_question_owed (test_questions_first_harbor.QuestionsFirstCase.test_flag_fires_when_fold_claimed_while_question_owed) ... ok
+test_flag_fires_when_fold_posted_via_current_and_last_output (test_questions_first_harbor.QuestionsFirstCase.test_flag_fires_when_fold_posted_via_current_and_last_output) ... ok
+test_flag_on_board_and_alarm (test_questions_first_harbor.QuestionsFirstCase.test_flag_on_board_and_alarm) ... ok
+test_fold_claim_granted_after_question_answered (test_questions_first_harbor.QuestionsFirstCase.test_fold_claim_granted_after_question_answered) ... ok
+test_fold_claim_refused_while_question_owed (test_questions_first_harbor.QuestionsFirstCase.test_fold_claim_refused_while_question_owed) ... ok
+test_head_for_owed_side_is_the_question_not_a_task (test_questions_first_harbor.QuestionsFirstCase.test_head_for_owed_side_is_the_question_not_a_task) ... ok
+test_no_flag_for_answer_claim_or_queued_fold (test_questions_first_harbor.QuestionsFirstCase.test_no_flag_for_answer_claim_or_queued_fold) ... ok
+test_no_flag_when_no_question_owed (test_questions_first_harbor.QuestionsFirstCase.test_no_flag_when_no_question_owed) ... ok
+test_oldest_question_heads_when_several_owed (test_questions_first_harbor.QuestionsFirstCase.test_oldest_question_heads_when_several_owed) ... ok
+test_other_sides_fold_claim_unaffected (test_questions_first_harbor.QuestionsFirstCase.test_other_sides_fold_claim_unaffected) ... ok
+test_owed_question_is_head_of_queue_ahead_of_folds_and_tasks (test_questions_first_harbor.QuestionsFirstCase.test_owed_question_is_head_of_queue_ahead_of_folds_and_tasks) ... ok
+test_task_claim_refused_while_question_owed (test_questions_first_harbor.QuestionsFirstCase.test_task_claim_refused_while_question_owed) ... ok
+test_work_and_research_claims_still_refused_while_owed (test_questions_first_harbor.QuestionsFirstCase.test_work_and_research_claims_still_refused_while_owed) ... ok
+test_cli_flags_and_poll_catch_posted_fold (test_questions_first_harbor.QuestionsFirstCliCase.test_cli_flags_and_poll_catch_posted_fold) ... ok
+test_cli_fold_claim_refused_then_granted_after_answer (test_questions_first_harbor.QuestionsFirstCliCase.test_cli_fold_claim_refused_then_granted_after_answer) ... ok
+
 ----------------------------------------------------------------------
-Ran 55 tests in 0.519s
+Ran 126 tests in 0.468s
 
 OK
