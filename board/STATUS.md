@@ -1,6 +1,6 @@
 # STATUS — Muse Bridge (rendered by muse-planning from state/*.md + issues.json)
 # Rendered, never hand-written. Each side owns only its own state file.
-# Rendered: 2026-11-10T16:50:38Z
+# Rendered: 2026-11-10T17:32:43Z
 
 ## Owed questions (head of queue — answer first): 0
 
@@ -12,13 +12,14 @@
 1. [fold] harbor: fold of author 884 (posts as 502) — fold of author 884 (posts as 502) (started 2026-11-09T23:16:44Z) | prio —  <-- HEAD OF QUEUE
 2. [fold] cc: fold 845 (slot 224, append slot 222) — HELD under PAUSED seq 8 (author 845, author's engine-review answer + Harbor 395/396) — fold 845 (slot 224, append slot 222) — HELD under PAUSED seq 8 (author 845, author's engine-review answer + Harbor 395/396) | prio —
 3. [task] author: author 881 - PAUSE + planning system moves to GitHub (author-initiated, John's order) — pause packet, GitHub move + ask for additions/modifications — author 881 - PAUSE + planning system moves to GitHub (author-initiated, John's order) — pause packet, GitHub move + ask for additions/modifications | prio —
-4. [task] time-data rows C1/C2/retry — time-data rows C1/C2/retry (status ready) | prio —
-5. [task] Swing Clock odds-reuse design (3) level-reach + (2) exit/timing — Swing Clock odds-reuse design (3) level-reach + (2) exit/timing (status ready) | prio —
+4. [task] engine build — bar-walk with mining fields (MAE, time-to-first-+1R, intra-trade path, zone age in bars, touch history, penetration-so-far) — engine build — bar-walk with mining fields (MAE, time-to-first-+1R, intra-trade path, zone age in bars, touch history, penetration-so-far) (status ready) | prio P1
+5. [task] time-data rows C1/C2/retry — time-data rows C1/C2/retry (status ready) | prio —
+6. [task] Swing Clock odds-reuse design (3) level-reach + (2) exit/timing — Swing Clock odds-reuse design (3) level-reach + (2) exit/timing (status ready) | prio —
 
 ## Questions-first flags (F6: answer before any fold/task)
 - none
 
 ## A13 alarm (commit-time liveness)
-- author: ok (last state commit 0.2m ago) — no open question
-- harbor: ok (last state commit 0.2m ago) — no open question — claim fold of author 884 (posts as 502)
-- cc: ok (last state commit 0.2m ago) — no open question
+- author: ok (last state commit 1184.8m ago) — no open question
+- harbor: STALE (last state commit 1067.8m ago) — no open question — claim fold of author 884 (posts as 502)
+- cc: ok (last state commit 1184.7m ago) — no open question
